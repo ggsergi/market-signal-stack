@@ -7,13 +7,13 @@ Es un proyecto de portfolio y, a la vez, una colaboración real entre dos person
 ## Arquitectura
 
 ```
-Sara carga datos crudos          yo transformo en dbt              Sara consume
+Carga de datos crudos          Transformación en dbt              Agente AI consume
    ↓                                    ↓                               ↓
 raw_market_signals    →    models/staging/  →  models/marts/   →   market_signal_marts
 (BigQuery, fuera de dbt)      (staging, ephemeral)   (tablas)         (BigQuery, vía su agente)
 ```
 
-- **`raw_market_signals`**: dataset de BigQuery donde Sara carga los datos crudos. dbt no lo construye, solo lo lee como `source`.
+- **`raw_market_signals`**: dataset de BigQuery donde se carga los datos crudos. dbt no lo construye, solo lo lee como `source`.
 - **`models/staging/`**: limpieza mínima (cast de tipos, columnas seleccionadas) sobre el dato crudo. Sin lógica de negocio. Materializado como `ephemeral` — no deja tabla propia, se inyecta en los modelos que lo usan.
 - **`models/marts/`**: aquí vive el cálculo de cada indicador — la lógica de negocio real. Se materializa como tabla en `market_signal_marts`, el dataset que Sara consume desde su agente con una cuenta de servicio de solo lectura.
 
