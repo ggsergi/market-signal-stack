@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: market_signal_stack
+    database: market-signal-stack
+    schema: raw_market_signals
+    config:
+      loaded_at_field: ingested_at
+      freshness:
+        filter: "metric IN ('yield_2y', 'yield_10y', 'spx', 'ndx', 'dxy', 'vix', 'move', 'btc_price')"
+        warn_after: {count: 1, period: day}
+        error_after: {count: 3, period: day}
+    tables:
+      - name: raw_market_metrics
+        columns:
+          - name: source
+          - name: market_type
+          - name: asset
+          - name: metric
+            tests:
+              - not_null
+          - name: metric_family
+          - name: value
+            tests:
+              - not_null
+          - name: unit
+          - name: timeframe
+          - name: event_time
+            tests:
+              - not_null
+          - name: ingested_at
+          - name: payload

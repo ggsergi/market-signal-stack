@@ -1,0 +1,22 @@
+name: 'market_signal_stack'
+version: '1.0.0'
+config-version: 2
+
+profile: 'market_signal_stack'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  market_signal_stack:
+    +materialized: view
+    staging:
+      +materialized: ephemeral

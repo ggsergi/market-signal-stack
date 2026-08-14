@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_yield_curve
+    config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        roles/bigquery.dataViewer: ['serviceAccount:sara-marts-reader@market-signal-stack.iam.gserviceaccount.com']
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+      - name: dgs2
+        data_type: FLOAT64
+      - name: dgs10
+        data_type: FLOAT64
+      - name: is_dgs2_imputed
+        data_type: BOOL
+      - name: is_dgs10_imputed
+        data_type: BOOL
+      - name: raw_diff
+        data_type: FLOAT64
+      - name: normalized_value
+        data_type: FLOAT64
+      - name: signal
+        data_type: STRING

@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_market_metrics
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - metric
+              - event_time
+    columns:
+      - name: metric
+        tests:
+          - not_null
+      - name: event_time
+        tests:
+          - not_null
+      - name: value
+        tests:
+          - not_null

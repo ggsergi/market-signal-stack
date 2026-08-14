@@ -1,0 +1,9 @@
+[project]
+name = "dbt-market-signal-stack"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "dbt-bigquery>=1.12.0",
+]
