@@ -1,8 +1,6 @@
 # Market Signal Stack
 
-Pipeline de indicadores macro, cripto y on-chain construido en dbt sobre BigQuery. Transforma datos crudos de mercado en señales normalizadas que alimentan un agente de IA (desarrollado por Sara) para evaluar el ciclo de mercado de Bitcoin.
-
-Es un proyecto de portfolio y, a la vez, una colaboración real entre dos personas: yo construyo y mantengo el pipeline de datos, Sara construye el agente que lo consume. Está en fase inicial — el primer indicador ya funciona de punta a punta, y sirve de plantilla para los siguientes.
+Pipeline de indicadores macro, cripto y on-chain construido en dbt sobre BigQuery. Transforma datos crudos de mercado en señales normalizadas que alimentan un agente de IA para evaluar el ciclo de mercado de Bitcoin.
 
 ## Arquitectura
 
