@@ -1,0 +1,54 @@
+indicator_rules:
+  yield_curve_10y_2y:
+    description: "US Treasury yield curve using the 10-year minus 2-year spread as a recession and liquidity risk indicator"
+    layer: macro
+    relevance_level: 4
+    weight: 1.3
+    calculation:
+      formula: "raw_diff = DGS10 - DGS2"
+      frequency: "daily"
+      source: "FRED"
+      series:
+        - DGS10
+        - DGS2
+      notes: "If one of the series is missing (holiday), carry forward last available value."
+    normalization:
+      type: "threshold"
+      unit: "percentage_points"
+      rolling_window: null
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene max_exclusive
+    # (sin techo) y el último no tiene min_inclusive (sin suelo).
+    # Ej.: raw_diff = 1.0 exacto -> pertenece al primer tramo (BULLISH, 1.0),
+    # no al segundo, porque 1.0 es el min_inclusive del primero.
+    thresholds:
+      - min_inclusive: 1.0
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "La curva de tipos es fuertemente positiva (10Y muy por encima del 2Y), indicando condiciones macroeconómicas sólidas y favorables para activos de riesgo como BTC."
+      - min_inclusive: 0.25
+        max_exclusive: 1.0
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "La curva de tipos es positiva, reflejando un entorno macroeconómico estable y moderadamente favorable para activos de riesgo."
+      - min_inclusive: -0.25
+        max_exclusive: 0.25
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "La curva de tipos se mantiene plana o en transición, indicando incertidumbre macroeconómica y posible cambio de ciclo."
+      - min_inclusive: -1.0
+        max_exclusive: -0.25
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "La curva de tipos se encuentra invertida, señalando riesgo de desaceleración económica y menor apetito por activos de riesgo como BTC."
+      - min_inclusive: null
+        max_exclusive: -1.0
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "La curva de tipos está fuertemente invertida, históricamente asociada a recesiones y estrés financiero significativo."

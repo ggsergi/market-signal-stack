@@ -11,6 +11,9 @@ de staging y marts en `market_signal_marts`.
   estructura, naming, materialización o errores conocidos — no cargar todo el
   contenido de golpe, solo la nota relevante al problema concreto que tienes
   delante.
+- Las reglas de negocio de cada indicador (fórmula, thresholds, señales) viven
+  versionadas en `docs/indicator_rules/` (un archivo por indicador) — fuente
+  de verdad para implementaciones nuevas o revisiones de las existentes.
 
 ## Comandos y arquitectura
 - Usar siempre `uv run dbt <comando>` — el venv no está activado por defecto.

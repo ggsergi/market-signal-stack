@@ -11,6 +11,9 @@ models:
     columns:
       - name: event_time
         data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
       - name: dgs2
         data_type: FLOAT64
       - name: dgs10
@@ -21,7 +24,13 @@ models:
         data_type: BOOL
       - name: raw_diff
         data_type: FLOAT64
+        tests:
+          - not_null
       - name: normalized_value
         data_type: FLOAT64
       - name: signal
         data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
