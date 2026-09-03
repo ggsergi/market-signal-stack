@@ -24,10 +24,12 @@ flowchart LR
         stg_market_metrics["stg_market_metrics"]
     end
     subgraph marts["marts"]
+        mart_dxy["mart_dxy"]
         mart_fed_balance_sheet["mart_fed_balance_sheet"]
         mart_yield_curve["mart_yield_curve"]
     end
     raw_market_metrics --> stg_market_metrics
+    stg_market_metrics --> mart_dxy
     stg_market_metrics --> mart_fed_balance_sheet
     stg_market_metrics --> mart_yield_curve
     marts --> market_signal_marts[("market_signal_marts<br/>(BigQuery)")]
@@ -40,16 +42,17 @@ flowchart LR
 
 ## Estado actual
 
-Dos indicadores construidos, ambos en la capa Macro Global:
+Tres indicadores construidos, todos en la capa Macro Global:
 
 - **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread entre los tipos del Tesoro de EE. UU. a 10 y 2 años, señal de riesgo de recesión y de apetito por activos de riesgo como BTC. Calcula el spread diario, una señal categórica (`BULLISH` / `NEUTRAL` / `BEARISH`) con valor normalizado, y aplica forward-fill cuando falta el dato de una de las dos series — cada fila indica explícitamente si su valor es real o arrastrado (`is_dgs2_imputed`, `is_dgs10_imputed`).
 - **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): variación semanal del balance de la Reserva Federal (WALCL), señal de expansión o contracción de liquidez. Calcula el delta semana a semana y la misma señal categórica normalizada.
+- **DXY (US Dollar Index)** (`mart_dxy`): distancia del índice del dólar respecto a su media móvil de 50 días, señal de presión de liquidez global. La señal se deja en `NULL` hasta acumular 50 días de histórico real (no calcula una media parcial como si fuera completa) — se resuelve solo según entren más datos.
 
-Ambos siguen el mismo patrón: staging genérico, mart con la lógica de negocio, reglas documentadas en `docs/indicator_rules/`, tests y contrato de datos.
+Los tres siguen el mismo patrón: staging genérico, mart con la lógica de negocio, reglas documentadas en `docs/indicator_rules/`, tests y contrato de datos.
 
 ## Roadmap
 
-Yield Curve y FED Balance Sheet son los dos primeros indicadores de una capa más amplia de **Macro Global** — señales macroeconómicas pensadas para alimentar la evaluación del ciclo de mercado de BTC. La idea es seguir ampliando esta capa con más indicadores macro reutilizando el mismo patrón (staging, mart, reglas versionadas, tests, contrato de datos), y usarla como base para otras capas de señal más adelante.
+Yield Curve, FED Balance Sheet y DXY son los primeros indicadores de una capa más amplia de **Macro Global** — señales macroeconómicas pensadas para alimentar la evaluación del ciclo de mercado de BTC. La idea es seguir ampliando esta capa con más indicadores macro reutilizando el mismo patrón (staging, mart, reglas versionadas, tests, contrato de datos), y usarla como base para otras capas de señal más adelante.
 
 ## Cómo correrlo
 
