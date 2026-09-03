@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: mart_dxy
+    columns:
+      - name: event_time
+        tests:
+          - unique
+          - not_null
+      - name: signal
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']

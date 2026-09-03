@@ -1,0 +1,52 @@
+indicator_rules:
+  dxy_us_dollar_strength:
+    description: "US Dollar Index (DXY) trend as a proxy for global liquidity pressure and USD strength"
+    layer: macro
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      formula: "distance = (DXY_close_today / MA50_DXY) - 1"
+      frequency: "daily"
+      source: "Yahoo Finance"
+      series:
+        - "DX-Y.NYB"
+      notes: "Distance to 50-day moving average used to capture medium-term USD trend."
+    normalization:
+      type: "threshold"
+      unit: "percentage_distance"
+      rolling_window: 50
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene min_inclusive
+    # (sin suelo) y el último no tiene max_exclusive (sin techo). Misma
+    # semántica que yield_curve_10y_2y.yaml y fed_balance_sheet_qe_qt.yaml.
+    thresholds:
+      - min_inclusive: null
+        max_exclusive: -0.05
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El dólar se encuentra significativamente débil frente a su tendencia reciente, indicando un fuerte alivio de presión de liquidez y un entorno muy favorable para BTC."
+      - min_inclusive: -0.05
+        max_exclusive: -0.01
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El índice del dólar (DXY) se sitúa por debajo de su tendencia reciente, indicando debilidad del USD y un entorno favorable para activos de riesgo como BTC."
+      - min_inclusive: -0.01
+        max_exclusive: 0.01
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El índice del dólar (DXY) se mantiene cerca de su tendencia, sin señales claras de fortaleza o debilidad relevantes para BTC."
+      - min_inclusive: 0.01
+        max_exclusive: 0.05
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El índice del dólar (DXY) muestra fortaleza moderada al situarse por encima de su tendencia, lo que suele ejercer presión bajista sobre activos de riesgo como BTC."
+      - min_inclusive: 0.05
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El dólar se encuentra fuertemente apreciado frente a su tendencia, indicando presión significativa sobre la liquidez global y un entorno claramente adverso para BTC."
