@@ -1,0 +1,53 @@
+indicator_rules:
+  vix_volatility_index:
+    description: "VIX Index as a measure of equity market volatility and risk aversion"
+    layer: macro
+    relevance_level: 2
+    weight: 0.9
+    calculation:
+      formula: "VIX_MA20 = mean(VIX over last 20 days)"
+      frequency: "daily"
+      source: "FRED"
+      series:
+        - VIXCLS
+      notes: "20-day moving average used to smooth short-term volatility spikes."
+    normalization:
+      type: "zscore_capped"
+      rolling_window: 750
+      cap: 3
+      unit: "index_level"
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo (zscore más alto) no
+    # tiene max_exclusive (sin techo) y el último (zscore más bajo) no tiene
+    # min_inclusive (sin suelo). Misma semántica que los demás indicadores.
+    thresholds:
+      - min_inclusive: 1.0
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El VIX se encuentra extremadamente elevado respecto a su historial reciente, indicando fuerte aversión al riesgo y un entorno claramente adverso para BTC."
+      - min_inclusive: 0.5
+        max_exclusive: 1.0
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El VIX está elevado en términos históricos, reflejando aumento de la incertidumbre y presión sobre activos de riesgo como BTC."
+      - min_inclusive: -0.5
+        max_exclusive: 0.5
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El VIX se sitúa en niveles normales, sin señales claras de estrés ni de complacencia en los mercados."
+      - min_inclusive: -1.0
+        max_exclusive: -0.5
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El VIX se mantiene bajo respecto a su historial, indicando estabilidad en los mercados y un entorno favorable para activos de riesgo como BTC."
+      - min_inclusive: null
+        max_exclusive: -1.0
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El VIX se encuentra extremadamente bajo, reflejando fuerte apetito por riesgo y un entorno macroeconómico muy favorable para BTC."
