@@ -27,12 +27,14 @@ flowchart LR
     subgraph marts["marts"]
         mart_dxy["mart_dxy"]
         mart_fed_balance_sheet["mart_fed_balance_sheet"]
+        mart_spx["mart_spx"]
         mart_vix["mart_vix"]
         mart_yield_curve["mart_yield_curve"]
     end
     raw_market_metrics --> stg_market_metrics
     stg_market_metrics --> mart_dxy
     stg_market_metrics --> mart_fed_balance_sheet
+    stg_market_metrics --> mart_spx
     stg_market_metrics --> mart_vix
     stg_market_metrics --> mart_yield_curve
     marts --> market_signal_marts[("market_signal_marts<br/>(BigQuery)")]
@@ -45,18 +47,19 @@ flowchart LR
 
 ## Estado actual
 
-Cuatro indicadores construidos, todos en la capa Macro Global:
+Cinco indicadores construidos, todos en la capa Macro Global:
 
 - **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread entre los tipos del Tesoro de EE. UU. a 10 y 2 años, señal de riesgo de recesión y de apetito por activos de riesgo como BTC. Calcula el spread diario, una señal categórica (`BULLISH` / `NEUTRAL` / `BEARISH`) con valor normalizado, y aplica forward-fill cuando falta el dato de una de las dos series — cada fila indica explícitamente si su valor es real o arrastrado (`is_dgs2_imputed`, `is_dgs10_imputed`).
 - **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): variación semanal del balance de la Reserva Federal (WALCL), señal de expansión o contracción de liquidez. Calcula el delta semana a semana y la misma señal categórica normalizada.
 - **DXY (US Dollar Index)** (`mart_dxy`): distancia del índice del dólar respecto a su media móvil de 50 días, señal de presión de liquidez global. La señal se deja en `NULL` hasta acumular 50 días de histórico real (no calcula una media parcial como si fuera completa) — se resuelve solo según entren más datos.
 - **VIX (Volatility Index)** (`mart_vix`): z-score (capado a ±3) de la media móvil de 20 días del VIX frente a su historial de 750 días, señal de aversión al riesgo. Igual que DXY, la señal se deja en `NULL` mientras no haya ventana completa — ver [Indicadores en construcción](#indicadores-en-construcción).
+- **S&P 500 Risk Regime** (`mart_spx`): distancia del S&P 500 respecto a su media móvil de 200 días, señal estructural de apetito por riesgo global. Igual que DXY, la señal se deja en `NULL` hasta acumular 200 días de histórico real.
 
-Los cuatro siguen el mismo patrón: staging genérico, mart con la lógica de negocio, reglas documentadas en `docs/indicator_rules/`, tests y contrato de datos.
+Los cinco siguen el mismo patrón: staging genérico, mart con la lógica de negocio, reglas documentadas en `docs/indicator_rules/`, tests y contrato de datos.
 
 ## Indicadores en construcción
 
-Algunos indicadores (VIX ahora; próximamente SPX y NDX) ya están construidos y funcionando, pero su cálculo depende de una ventana de histórico que el proyecto todavía no ha acumulado por completo — por ejemplo, VIX necesita 750 observaciones de su media móvil de 20 días para calcular un z-score fiable, y hoy hay muchas menos.
+Algunos indicadores (VIX y SPX ahora; próximamente NDX) ya están construidos y funcionando, pero su cálculo depende de una ventana de histórico que el proyecto todavía no ha acumulado por completo — por ejemplo, VIX necesita 750 observaciones de su media móvil de 20 días para calcular un z-score fiable, y SPX necesita 200 días para su media móvil, y hoy hay muchas menos.
 
 Mientras tanto, esos marts devuelven `NULL` en `signal`/`normalized_value` de forma intencional — **no es un bug**. Un guardrail (`COUNT() OVER` la misma ventana) impide calcular una media o z-score con menos observaciones de las que la fórmula requiere, en vez de silenciosamente devolver un resultado parcial disfrazado de completo. Esto se resuelve solo, sin cambios de código, según se acumule más historial de carga.
 
@@ -64,7 +67,7 @@ Mientras tanto, esos marts devuelven `NULL` en `signal`/`normalized_value` de fo
 
 ## Roadmap
 
-Yield Curve, FED Balance Sheet, DXY y VIX son los primeros indicadores de una capa más amplia de **Macro Global** — señales macroeconómicas pensadas para alimentar la evaluación del ciclo de mercado de BTC. La idea es seguir ampliando esta capa con más indicadores macro reutilizando el mismo patrón (staging, mart, reglas versionadas, tests, contrato de datos), y usarla como base para otras capas de señal más adelante.
+Yield Curve, FED Balance Sheet, DXY, VIX y SPX son los primeros indicadores de una capa más amplia de **Macro Global** — señales macroeconómicas pensadas para alimentar la evaluación del ciclo de mercado de BTC. La idea es seguir ampliando esta capa con más indicadores macro reutilizando el mismo patrón (staging, mart, reglas versionadas, tests, contrato de datos), y usarla como base para otras capas de señal más adelante.
 
 ## Cómo correrlo
 
