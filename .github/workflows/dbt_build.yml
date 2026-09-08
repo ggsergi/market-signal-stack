@@ -1,0 +1,62 @@
+name: dbt build
+
+on:
+  schedule:
+    # 14:00 UTC daily (~9-10am US Eastern). FRED publishes most series in the
+    # morning ET and Yahoo Finance closes ~16:00 ET the prior day, so this
+    # leaves a comfortable buffer after both sources have data for the day.
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11" # keep in sync with .python-version
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Write dbt profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<EOF
+          market_signal_stack:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: oauth
+                project: ${{ steps.auth.outputs.project_id }}
+                dataset: market_signal_marts
+                location: EU
+                threads: 4
+                job_execution_timeout_seconds: 300
+                job_retries: 1
+          EOF
+
+      - name: dbt build
+        run: uv run dbt build
+        env:
+          # Real value (not committed to the repo) lives in a GitHub secret.
+          # Without it, the mart_yield_curve grant reconciles against the
+          # placeholder default instead of the real read-only service account.
+          SARA_MARTS_READER_PRINCIPAL: ${{ secrets.SARA_MARTS_READER_PRINCIPAL }}
