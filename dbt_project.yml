@@ -20,3 +20,5 @@ models:
     +materialized: view
     staging:
       +materialized: ephemeral
+  elementary:
+    +schema: "elementary"
