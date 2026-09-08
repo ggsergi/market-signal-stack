@@ -1,4 +1,6 @@
 target/
 dbt_packages/
 logs/
+edr_target/
+elementary_report.html
 CLAUDE.local.md

@@ -51,6 +51,17 @@ jobs:
                 threads: 4
                 job_execution_timeout_seconds: 300
                 job_retries: 1
+
+          elementary:
+            target: default
+            outputs:
+              default:
+                type: bigquery
+                method: oauth
+                project: ${{ steps.auth.outputs.project_id }}
+                dataset: market_signal_marts_elementary
+                location: EU
+                threads: 4
           EOF
 
       - name: dbt build
@@ -60,3 +71,16 @@ jobs:
           # Without it, the mart_yield_curve grant reconciles against the
           # placeholder default instead of the real read-only service account.
           SARA_MARTS_READER_PRINCIPAL: ${{ secrets.SARA_MARTS_READER_PRINCIPAL }}
+
+      - name: Generate and upload Elementary report
+        # Runs even if dbt build failed above -- a failed run is exactly
+        # when you want the report, to see what broke. This step's own
+        # outcome doesn't change the job's pass/fail status, which is
+        # already decided by the dbt build step.
+        if: always()
+        run: |
+          uv run edr send-report \
+            --google-service-account-path "${{ steps.auth.outputs.credentials_file_path }}" \
+            --google-project-name "${{ steps.auth.outputs.project_id }}" \
+            --gcs-bucket-name "${{ secrets.ELEMENTARY_REPORT_BUCKET }}" \
+            --bucket-file-path elementary_report.html
