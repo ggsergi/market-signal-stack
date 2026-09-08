@@ -2,7 +2,6 @@ version: 2
 
 sources:
   - name: market_signal_stack
-    database: market-signal-stack
     schema: raw_market_signals
     config:
       loaded_at_field: ingested_at

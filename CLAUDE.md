@@ -1,6 +1,7 @@
 # dbt-market-signal-stack
 
-Proyecto dbt sobre BigQuery (`market-signal-stack`, region `EU`) que transforma
+Proyecto dbt sobre BigQuery (region `EU`; el project ID real de GCP no se
+versiona, ver `CLAUDE.local.md`) que transforma
 métricas de mercado crudas (`raw_market_signals.raw_market_metrics`) en modelos
 de staging y marts en `market_signal_marts`.
 
@@ -29,3 +30,4 @@ de staging y marts en `market_signal_marts`.
 ## Gotchas
 - La lista de métricas diarias en `freshness.filter` (`_sources.yml`) es manual — al añadir una métrica de cadencia diaria hay que sumarla ahí también.
 - `google-genai` / `vertexai` en `uv.lock` son residuo de una exploración anterior sin usar — ignorar, no es integración activa.
+- El `grants` de `mart_yield_curve.yml` usa `env_var('SARA_MARTS_READER_PRINCIPAL', ...)` con un placeholder por defecto — el valor real (no versionado, repo es público) vive en `CLAUDE.local.md`. Sin esa variable definida, `dbt run` aplica el grant al placeholder en vez de a la cuenta real.

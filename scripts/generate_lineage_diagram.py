@@ -26,7 +26,7 @@ LAYER_ORDER = ["source", "staging", "marts"]
 # Editar aquí manualmente si cambia el destino o el consumidor.
 FIXED_DOWNSTREAM_NODES = """
     marts --> market_signal_marts[("market_signal_marts<br/>(BigQuery)")]
-    market_signal_marts --> agent["Agente de IA<br/>(Sara)"]
+    market_signal_marts --> agent["AI agent<br/>(consumer)"]
 """
 
 

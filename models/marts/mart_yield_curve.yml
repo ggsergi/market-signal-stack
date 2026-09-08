@@ -7,7 +7,11 @@ models:
       contract:
         enforced: true
       grants:
-        roles/bigquery.dataViewer: ['serviceAccount:sara-marts-reader@market-signal-stack.iam.gserviceaccount.com']
+        # El principal real vive en la variable de entorno
+        # SARA_MARTS_READER_PRINCIPAL (no versionada) para no exponer el
+        # nombre real de la cuenta de servicio en un repo público. El valor
+        # por defecto es solo un placeholder ilustrativo.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
     columns:
       - name: event_time
         data_type: TIMESTAMP

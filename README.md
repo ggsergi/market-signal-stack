@@ -4,17 +4,17 @@
 [![Warehouse](https://img.shields.io/badge/warehouse-BigQuery-4285F4?logo=googlebigquery&logoColor=white)](https://cloud.google.com/bigquery)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-Pipeline de indicadores macro, cripto y on-chain construido en dbt sobre BigQuery. Transforma datos crudos de mercado en señales normalizadas que alimentan un agente de IA para evaluar el ciclo de mercado de Bitcoin.
+A dbt pipeline over BigQuery that turns raw macro, crypto, and on-chain market data into normalized signals feeding an AI agent that evaluates Bitcoin's market cycle.
 
-## Contenidos
-- [Arquitectura](#arquitectura)
-- [Estado actual](#estado-actual)
-- [Indicadores en construcción](#indicadores-en-construcción)
+## Contents
+- [Architecture](#architecture)
+- [Current status](#current-status)
+- [Indicators in progress](#indicators-in-progress)
 - [Roadmap](#roadmap)
-- [Cómo correrlo](#cómo-correrlo)
-- [Tests y garantías de calidad](#tests-y-garantías-de-calidad)
+- [Running it](#running-it)
+- [Tests and quality guarantees](#tests-and-quality-guarantees)
 
-## Arquitectura
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -38,57 +38,57 @@ flowchart LR
     stg_market_metrics --> mart_vix
     stg_market_metrics --> mart_yield_curve
     marts --> market_signal_marts[("market_signal_marts<br/>(BigQuery)")]
-    market_signal_marts --> agent["Agente de IA<br/>(Sara)"]
+    market_signal_marts --> agent["AI agent<br/>(consumer)"]
 ```
 
-- **`raw_market_signals`**: dataset de BigQuery donde se carga los datos crudos. dbt no lo construye, solo lo lee como `source`.
-- **`models/staging/`**: limpieza mínima (cast de tipos, columnas seleccionadas) sobre el dato crudo. Sin lógica de negocio. Materializado como `ephemeral` — no deja tabla propia, se inyecta en los modelos que lo usan.
-- **`models/marts/`**: aquí vive el cálculo de cada indicador — la lógica de negocio real. Se materializa como tabla en `market_signal_marts`, el dataset que se consume desde el agente con una cuenta de servicio de solo lectura.
+- **`raw_market_signals`**: the BigQuery dataset where raw data is loaded. dbt doesn't build it, it only reads it as a `source`.
+- **`models/staging/`**: minimal cleanup (type casting, column selection) on top of the raw data. No business logic. Materialized as `ephemeral` — it never lands as its own table, it's inlined into the models that use it.
+- **`models/marts/`**: where each indicator's calculation lives — the real business logic. Materialized as a table in `market_signal_marts`, the dataset consumed by the agent through a read-only service account.
 
-## Estado actual
+## Current status
 
-Cinco indicadores construidos, todos en la capa Macro Global:
+Five indicators built, all in the Macro Global layer:
 
-- **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread entre los tipos del Tesoro de EE. UU. a 10 y 2 años, señal de riesgo de recesión y de apetito por activos de riesgo como BTC. Calcula el spread diario, una señal categórica (`BULLISH` / `NEUTRAL` / `BEARISH`) con valor normalizado, y aplica forward-fill cuando falta el dato de una de las dos series — cada fila indica explícitamente si su valor es real o arrastrado (`is_dgs2_imputed`, `is_dgs10_imputed`).
-- **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): variación semanal del balance de la Reserva Federal (WALCL), señal de expansión o contracción de liquidez. Calcula el delta semana a semana y la misma señal categórica normalizada.
-- **DXY (US Dollar Index)** (`mart_dxy`): distancia del índice del dólar respecto a su media móvil de 50 días, señal de presión de liquidez global. La señal se deja en `NULL` hasta acumular 50 días de histórico real (no calcula una media parcial como si fuera completa) — se resuelve solo según entren más datos.
-- **VIX (Volatility Index)** (`mart_vix`): z-score (capado a ±3) de la media móvil de 20 días del VIX frente a su historial de 750 días, señal de aversión al riesgo. Igual que DXY, la señal se deja en `NULL` mientras no haya ventana completa — ver [Indicadores en construcción](#indicadores-en-construcción).
-- **S&P 500 Risk Regime** (`mart_spx`): distancia del S&P 500 respecto a su media móvil de 200 días, señal estructural de apetito por riesgo global. Igual que DXY, la señal se deja en `NULL` hasta acumular 200 días de histórico real.
+- **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread between the 10-year and 2-year US Treasury yields, a recession-risk and risk-appetite signal. Computes the daily spread, a categorical signal (`BULLISH` / `NEUTRAL` / `BEARISH`) with a normalized value, and applies forward-fill when one of the two series is missing for a given day — each row explicitly flags whether its value is real or carried forward (`is_dgs2_imputed`, `is_dgs10_imputed`).
+- **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): weekly change in the Federal Reserve's balance sheet (WALCL), a liquidity expansion/contraction signal. Computes the week-over-week delta and the same normalized categorical signal.
+- **DXY (US Dollar Index)** (`mart_dxy`): distance of the US Dollar Index from its 50-day moving average, a global liquidity pressure signal. The signal is left `NULL` until 50 days of real history accumulate (it never computes a partial average as if it were complete) — this resolves itself as more data comes in.
+- **VIX (Volatility Index)** (`mart_vix`): z-score (capped at ±3) of the VIX's 20-day moving average against its 750-day history, a risk-aversion signal. Same as DXY, the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
+- **S&P 500 Risk Regime** (`mart_spx`): distance of the S&P 500 from its 200-day moving average, a structural risk-appetite signal. Same as DXY, the signal is left `NULL` until 200 days of real history accumulate.
 
-Los cinco siguen el mismo patrón: staging genérico, mart con la lógica de negocio, reglas documentadas en `docs/indicator_rules/`, tests y contrato de datos.
+All five follow the same pattern: generic staging, a mart with the business logic, rules documented in `docs/indicator_rules/`, tests, and a data contract.
 
-## Indicadores en construcción
+## Indicators in progress
 
-Algunos indicadores (VIX y SPX ahora; próximamente NDX) ya están construidos y funcionando, pero su cálculo depende de una ventana de histórico que el proyecto todavía no ha acumulado por completo — por ejemplo, VIX necesita 750 observaciones de su media móvil de 20 días para calcular un z-score fiable, y SPX necesita 200 días para su media móvil, y hoy hay muchas menos.
+Some indicators (VIX and SPX now; NDX next) are already built and working, but their calculation depends on a history window the project hasn't fully accumulated yet — for example, VIX needs 750 observations of its 20-day moving average to compute a reliable z-score, and SPX needs 200 days for its moving average, and today there are far fewer.
 
-Mientras tanto, esos marts devuelven `NULL` en `signal`/`normalized_value` de forma intencional — **no es un bug**. Un guardrail (`COUNT() OVER` la misma ventana) impide calcular una media o z-score con menos observaciones de las que la fórmula requiere, en vez de silenciosamente devolver un resultado parcial disfrazado de completo. Esto se resuelve solo, sin cambios de código, según se acumule más historial de carga.
+In the meantime, those marts intentionally return `NULL` for `signal`/`normalized_value` — **this is not a bug**. A guardrail (`COUNT() OVER` the same window) prevents computing an average or z-score from fewer observations than the formula requires, instead of silently returning a partial result dressed up as a complete one. This resolves itself, with no code changes, as more historical data loads in.
 
-**MOVE** queda pendiente de revisar con Sara antes de construirlo: tiene una cadencia de carga irregular (12 filas en 16 días en la última revisión), así que antes de aplicarle este mismo patrón hay que entender si eso es esperado en la fuente o un problema de carga.
+**MOVE** is still pending review before being built: it has an irregular load cadence (12 rows over 16 days as of the last check), so before applying this same pattern to it, that needs to be understood as either expected at the source or a loading issue.
 
 ## Roadmap
 
-Yield Curve, FED Balance Sheet, DXY, VIX y SPX son los primeros indicadores de una capa más amplia de **Macro Global** — señales macroeconómicas pensadas para alimentar la evaluación del ciclo de mercado de BTC. La idea es seguir ampliando esta capa con más indicadores macro reutilizando el mismo patrón (staging, mart, reglas versionadas, tests, contrato de datos), y usarla como base para otras capas de señal más adelante.
+Yield Curve, FED Balance Sheet, DXY, VIX, and SPX are the first indicators in a broader **Macro Global** layer — macroeconomic signals meant to feed BTC market-cycle evaluation. The plan is to keep expanding this layer with more macro indicators reusing the same pattern (staging, mart, versioned rules, tests, data contract), and to use it as the foundation for other signal layers down the line.
 
-## Cómo correrlo
+## Running it
 
-Requiere Python 3.11+, [uv](https://docs.astral.sh/uv/) y acceso al proyecto de GCP `market-signal-stack`.
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and access to the GCP project this pipeline targets.
 
 ```bash
-uv sync                # instala dependencias
-uv run dbt deps        # instala paquetes dbt (dbt_utils)
-uv run dbt debug        # verifica la conexión a BigQuery
-uv run dbt run          # construye los modelos
-uv run dbt test         # corre los tests
+uv sync                # install dependencies
+uv run dbt deps        # install dbt packages (dbt_utils)
+uv run dbt debug        # verify the BigQuery connection
+uv run dbt run          # build the models
+uv run dbt test         # run the tests
 ```
 
-`profiles.yml` no está en este repo — vive en `~/.dbt/profiles.yml` de cada máquina, con las credenciales de BigQuery. Hay que crearlo aparte antes de correr nada; `dbt debug` confirma si está bien configurado.
+`profiles.yml` is not in this repo — it lives at `~/.dbt/profiles.yml` on each machine, with the BigQuery credentials (including the real GCP project ID). It needs to be created separately before running anything; `dbt debug` confirms whether it's set up correctly.
 
-## Tests y garantías de calidad
+## Tests and quality guarantees
 
-El pipeline no es un script suelto: cada capa tiene sus propias comprobaciones automáticas.
+This pipeline isn't a loose script: every layer has its own automated checks.
 
-- **Freshness del source**: alerta si los datos crudos llevan más de 1 día sin actualizarse, y falla si llevan más de 3 (solo para las métricas de cadencia diaria).
-- **Integridad de datos**: columnas clave nunca nulas, y combinación única de métrica + fecha (sin duplicados).
-- **Guardrail de forward-fill**: un test dedicado falla si un indicador lleva más de 5 días seguidos arrastrando el mismo valor — señal de que el pipeline de origen dejó de traer datos y nadie se ha dado cuenta.
+- **Source freshness**: warns if the raw data hasn't updated in over 1 day, and fails past 3 days (only for the daily-cadence metrics).
+- **Data integrity**: key columns are never null, and the metric + date combination is unique (no duplicates).
+- **Forward-fill guardrail**: a dedicated test fails if an indicator has been carrying forward the same value for more than 5 days in a row — a sign the source pipeline stopped delivering data and no one noticed.
 
-Para el detalle técnico más fino — convenciones de código, comandos exactos, gotchas conocidos — consulta [CLAUDE.md](CLAUDE.md).
+For finer technical detail — code conventions, exact commands, known gotchas — see [CLAUDE.md](CLAUDE.md).
