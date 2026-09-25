@@ -1,0 +1,162 @@
+# Declarative catalog of what gets ingested.
+#
+# Adding an indicator is a change here, never a new raw table: everything numeric and
+# time-indexed lands in raw_market_signals.raw_market_metrics in long format.
+#
+# Ported from the_trimarket_crew, with two fields added because the raw contract
+# needs them and the original config did not carry them:
+#   * market_type  -- domain of the observation (macro, crypto, index...)
+#   * unit         -- what the number means (percent, ratio, usd...)
+# Both must come from services/vocab.py.
+#
+# Dates are YYYY-MM-DD:
+#   start_date          explicit window for this indicator; null means "use the default
+#                       rolling window from settings below"
+#   end_date            null means "up to today"
+#   backfill_start_date used only with --backfill, for the full history
+
+settings:
+  # How far back a normal run reaches when an indicator sets no start_date.
+  # 1 = today only, 30 = last month, 90 = wide enough to absorb source revisions and
+  # to close the gap if the cron fails for several days. Re-ingesting is idempotent,
+  # so a wider window only costs a little bandwidth.
+  # Override per run with --days N or --start-date YYYY-MM-DD.
+  incremental_window_days: 30
+
+providers:
+  fred:
+    defaults:
+      source_name: "FRED"
+      source_code: "fred"
+      market_type: "macro"
+      asset_code: null
+      start_date: null
+      end_date: null
+
+  yahoo:
+    defaults:
+      # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
+      # authority on source names and it rejects anything else.
+      source_name: "Yahoo Finance"
+      source_code: "yahoo"
+      market_type: "index"
+      asset_code: null
+      timeframe_name: "1d"
+      interval: "1d"
+      price_field: "Close"
+      start_date: null
+      end_date: null
+
+indicators:
+  yield_2y:
+    provider: fred
+    series_id: "DGS2"
+    data_type: metric
+    metric_code: "yield_2y"
+    metric_family_code: "rates"
+    unit: "percent"
+    timeframe_name: "1d"
+    # DGS2 begins 1976-06-01. Earlier dates are accepted and simply return nothing.
+    backfill_start_date: "1976-06-01"
+
+  yield_10y:
+    provider: fred
+    series_id: "DGS10"
+    data_type: metric
+    metric_code: "yield_10y"
+    metric_family_code: "rates"
+    unit: "percent"
+    timeframe_name: "1d"
+    # DGS10 begins 1962-01-02.
+    backfill_start_date: "1962-01-02"
+
+  # Balance sheet of the Fed. The standard proxy for how much liquidity there is in
+  # the system, and the counterpart to the yield curve when reading macro.
+  fed_liquidity:
+    provider: fred
+    series_id: "WALCL"
+    data_type: metric
+    metric_code: "fed_liquidity"
+    metric_family_code: "liquidity"
+    # Millions, not billions: that is what FRED publishes for WALCL. M2SL below uses
+    # billions. Neither is converted -- see services/vocab.py.
+    unit: "usd_millions"
+    frequency: "weekly"
+    # WALCL begins 2002-12-18. Published weekly, as of Wednesday.
+    backfill_start_date: "2002-12-18"
+
+  # US money supply. Monthly, so a run with a window under ~30 days will often return
+  # nothing -- that is expected, not a failure.
+  m2_usa:
+    provider: fred
+    series_id: "M2SL"
+    data_type: metric
+    metric_code: "m2_usa"
+    metric_family_code: "liquidity"
+    unit: "usd_billions"
+    frequency: "monthly"
+    # M2SL begins 1959-01-01.
+    backfill_start_date: "1959-01-01"
+
+  # --- Yahoo Finance -----------------------------------------------------------
+  # Ticker symbols starting with ^ are indices, not tradable assets. Yahoo has no
+  # official API and no contract: if one of these stops returning data, the ticker
+  # changed upstream. Backfill start dates are conservative -- Yahoo silently returns
+  # a shorter series rather than erroring when asked for more history than it holds.
+
+  spx_index:
+    provider: yahoo
+    ticker: "^GSPC"
+    data_type: metric
+    metric_code: "spx"
+    metric_family_code: "price"
+    unit: "index"
+    backfill_start_date: "2010-01-01"
+
+  ndx_index:
+    provider: yahoo
+    ticker: "^NDX"
+    data_type: metric
+    metric_code: "ndx"
+    metric_family_code: "price"
+    unit: "index"
+    backfill_start_date: "2010-01-01"
+
+  dxy_index:
+    provider: yahoo
+    ticker: "^NYICDX"
+    data_type: metric
+    # A dollar index is a currency observation, so forex rather than index.
+    market_type: "forex"
+    metric_code: "dxy"
+    metric_family_code: "price"
+    unit: "index"
+    backfill_start_date: "2010-01-01"
+
+  vix_index:
+    provider: yahoo
+    ticker: "^VIX"
+    data_type: metric
+    metric_code: "vix"
+    metric_family_code: "volatility"
+    unit: "index"
+    backfill_start_date: "2010-01-01"
+
+  move_index:
+    provider: yahoo
+    ticker: "^MOVE"
+    data_type: metric
+    metric_code: "move"
+    metric_family_code: "volatility"
+    unit: "index"
+    backfill_start_date: "2020-01-01"
+
+  btc_price:
+    provider: yahoo
+    ticker: "BTC-USD"
+    data_type: metric
+    market_type: "crypto"
+    metric_code: "btc_price"
+    metric_family_code: "price"
+    unit: "usd"
+    backfill_start_date: "2014-09-17"

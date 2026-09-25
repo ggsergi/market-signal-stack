@@ -1,0 +1,10 @@
+# Credentials and API keys stay on this machine.
+*.json
+*_api_key.txt
+*.key
+*.pem
+
+# Declarative config is safe to commit -- it holds no secrets.
+!sources.yaml
+!indicator_rules.yaml
+!.gitignore

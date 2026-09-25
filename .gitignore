@@ -4,3 +4,14 @@ logs/
 edr_target/
 elementary_report.html
 CLAUDE.local.md
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Credentials and API keys (ingestion/config and anywhere else)
+GOOGLE_APPLICATION_CREDENTIALS*.json
+*_api_key.txt
+*.key
+*.pem
+ingestion/config/*.json
