@@ -11,6 +11,7 @@ from pathlib import Path
 from services.etl_pipeline.sources.api.api_ecb import EcbSeriesLoader
 from services.etl_pipeline.sources.api.api_fred import FredSeriesLoader
 from services.etl_pipeline.sources.api.api_yahoo import YahooIndexLoader
+from services.etl_pipeline.sources.html.tradingeconomics import TradingEconomicsLoader
 from services.utils import REPO_ROOT, load_yaml
 
 SOURCES_PATH = "config/sources.yaml"
@@ -186,10 +187,36 @@ def build_loaders_from_sources_yaml(
                 )
             )
 
+        elif provider == "tradingeconomics":
+            if not config.get("url") or not config.get("value_label"):
+                raise ValueError(
+                    f"Signal '{signal_name}' needs 'url' and 'value_label' for "
+                    f"provider tradingeconomics"
+                )
+
+            loaders.append(
+                TradingEconomicsLoader(
+                    signal_name=signal_name,
+                    url=config["url"],
+                    value_label=config["value_label"],
+                    data_type=config.get("data_type", "metric"),
+                    market_type=config.get("market_type", "macro"),
+                    metric_code=config.get("metric_code"),
+                    metric_family_code=config.get("metric_family_code"),
+                    unit=config.get("unit"),
+                    timeframe_name=timeframe,
+                    source_code=config.get("source_code", "tradingeconomics"),
+                    source_name=config.get("source_name", "TradingEconomics"),
+                    asset_code=config.get("asset_code"),
+                    start_date=start_date,
+                    end_date=config.get("end_date"),
+                )
+            )
+
         else:
             raise ValueError(
                 f"Unsupported provider '{provider}' for signal '{signal_name}'. "
-                f"Supported: 'fred', 'yahoo', 'ecb'."
+                f"Supported: 'fred', 'yahoo', 'ecb', 'tradingeconomics'."
             )
 
     return loaders

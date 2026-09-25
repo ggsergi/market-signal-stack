@@ -87,6 +87,8 @@ USD_BILLIONS = "usd_billions"
 # Euro area aggregates from the ECB come in millions of euros. Kept in euros, not
 # converted to USD: converting is a transformation, and the raw layer does not do it.
 EUR_MILLIONS = "eur_millions"
+# China's M2 as TradingEconomics states it (PBoC figures), unconverted.
+CNY_BILLIONS = "cny_billions"
 INDEX_UNIT = "index"
 
 UNITS = frozenset(
@@ -98,6 +100,7 @@ UNITS = frozenset(
         USD_MILLIONS,
         USD_BILLIONS,
         EUR_MILLIONS,
+        CNY_BILLIONS,
         INDEX_UNIT,
     }
 )

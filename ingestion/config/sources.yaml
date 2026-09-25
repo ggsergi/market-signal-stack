@@ -42,6 +42,15 @@ providers:
       start_date: null
       end_date: null
 
+  tradingeconomics:
+    defaults:
+      source_name: "TradingEconomics"
+      source_code: "tradingeconomics"
+      market_type: "macro"
+      asset_code: null
+      start_date: null
+      end_date: null
+
   yahoo:
     defaults:
       # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
@@ -125,6 +134,21 @@ indicators:
     frequency: "monthly"
     # The series begins 1980-01.
     backfill_start_date: "1980-01-01"
+
+  # China M2 (PBoC figures), scraped from TradingEconomics as the_trimarket_crew did:
+  # no FRED series for it is still updated (they all end 2013-2019). The page only
+  # shows the last two months, so there is no backfill -- history accumulates from
+  # the first run. If the page wording changes, the loader fails loudly.
+  m2_china:
+    provider: tradingeconomics
+    url: "https://tradingeconomics.com/china/money-supply-m2"
+    # Unit text exactly as it appears in the page's summary sentence.
+    value_label: "CNY Billion"
+    data_type: metric
+    metric_code: "m2_china"
+    metric_family_code: "liquidity"
+    unit: "cny_billions"
+    frequency: "monthly"
 
   # --- Yahoo Finance -----------------------------------------------------------
   # Ticker symbols starting with ^ are indices, not tradable assets. Yahoo has no

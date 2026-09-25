@@ -1,6 +1,7 @@
 # Ingestion
 
-Downloads market and macro data from FRED, the ECB and Yahoo Finance and lands it in
+Downloads market and macro data from FRED, the ECB, Yahoo Finance and TradingEconomics
+and lands it in
 BigQuery, in `raw_market_signals.raw_market_metrics`. That table is the source the
 dbt project in the repo root reads from.
 
@@ -69,6 +70,7 @@ Defined in `config/sources.yaml`:
 | `fed_liquidity` | `fed_liquidity` | FRED | `WALCL` | weekly |
 | `m2_usa` | `m2_usa` | FRED | `M2SL` | monthly |
 | `m3_eurozone` | `m3_eurozone` | ECB | `BSI.M.U2.Y.V.M30.X.1.U2.2300.Z01.E` | monthly |
+| `m2_china` | `m2_china` | TradingEconomics (scraped) | `china/money-supply-m2` | monthly |
 | `spx_index` | `spx` | Yahoo Finance | `^GSPC` | daily |
 | `ndx_index` | `ndx` | Yahoo Finance | `^NDX` | daily |
 | `dxy_index` | `dxy` | Yahoo Finance | `^NYICDX` | daily |
@@ -102,6 +104,7 @@ ingestion/
 ├── services/
 │   ├── etl_pipeline/
 │   │   ├── sources/api/         FRED, ECB and Yahoo Finance loaders
+│   │   ├── sources/html/        TradingEconomics scraper
 │   │   ├── transforms/          loader output -> raw table rows
 │   │   ├── jobs/                the refresh job (CLI)
 │   │   └── loader_factory.py    builds loaders from sources.yaml
