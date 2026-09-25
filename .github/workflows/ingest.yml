@@ -2,12 +2,11 @@ name: ingest
 
 on:
   schedule:
-    # 13:30 UTC daily: half an hour before dbt_build.yml (14:00 UTC), so the
-    # raw table is fresh when dbt runs. The two workflows are not linked; if
-    # this one runs late or fails, dbt still runs at 14:00 on whatever is there.
-    - cron: "30 13 * * *"
-    # TEMPORARY: one-off test run on 2026-09-25 at 05:05 UTC. Remove after.
-    - cron: "5 5 25 9 *"
+    # 06:00 UTC daily = 07:00 in Spain in winter (CET), 08:00 in summer (CEST).
+    # GitHub cron has no time zones. Well before dbt_build.yml (14:00 UTC),
+    # so the raw table is fresh when dbt runs. The two workflows are not
+    # linked; if this one fails, dbt still runs at 14:00 on whatever is there.
+    - cron: "0 6 * * *"
   workflow_dispatch: {}
 
 permissions:
