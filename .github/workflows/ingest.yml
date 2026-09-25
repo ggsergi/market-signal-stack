@@ -17,18 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           # Separate account from dbt-build: this one can write to
           # raw_market_signals, the dbt one only reads it.
           credentials_json: ${{ secrets.GCP_RAW_LOADER_SA_KEY }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10.2.0 # no floating v10 tag upstream
         with:
           python-version: "3.11" # keep in sync with .python-version
 
