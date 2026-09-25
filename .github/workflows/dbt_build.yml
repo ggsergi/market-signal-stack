@@ -12,43 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  ingest:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          # Separate account from dbt-build: this one can write to
-          # raw_market_signals, the dbt one only reads it.
-          credentials_json: ${{ secrets.GCP_RAW_LOADER_SA_KEY }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.11" # keep in sync with .python-version
-
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Load raw market data
-        # Rolling window from settings.incremental_window_days in
-        # ingestion/config/sources.yaml. Exits non-zero if any source failed,
-        # after landing the ones that worked, so dbt-build does not run on a
-        # partial load.
-        working-directory: ingestion
-        run: uv run python scripts/run_jobs.py --persist
-        env:
-          # The auth step exports GOOGLE_APPLICATION_CREDENTIALS, which the
-          # ingestion code picks up as its service account key.
-          GCP_PROJECT_ID: ${{ steps.auth.outputs.project_id }}
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-
   dbt-build:
-    needs: ingest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
