@@ -1,11 +1,11 @@
 # Ingestion
 
-Downloads market and macro data from FRED and Yahoo Finance and lands it in
+Downloads market and macro data from FRED, the ECB and Yahoo Finance and lands it in
 BigQuery, in `raw_market_signals.raw_market_metrics`. That table is the source the
 dbt project in the repo root reads from.
 
 ```
-FRED / Yahoo Finance ──▶ raw_market_signals.raw_market_metrics ──▶ dbt (models/)
+FRED / ECB / Yahoo ──▶ raw_market_signals.raw_market_metrics ──▶ dbt (models/)
 ```
 
 ## Setup
@@ -68,6 +68,7 @@ Defined in `config/sources.yaml`:
 | `yield_10y` | `yield_10y` | FRED | `DGS10` | daily |
 | `fed_liquidity` | `fed_liquidity` | FRED | `WALCL` | weekly |
 | `m2_usa` | `m2_usa` | FRED | `M2SL` | monthly |
+| `m3_eurozone` | `m3_eurozone` | ECB | `BSI.M.U2.Y.V.M30.X.1.U2.2300.Z01.E` | monthly |
 | `spx_index` | `spx` | Yahoo Finance | `^GSPC` | daily |
 | `ndx_index` | `ndx` | Yahoo Finance | `^NDX` | daily |
 | `dxy_index` | `dxy` | Yahoo Finance | `^NYICDX` | daily |
@@ -100,7 +101,7 @@ ingestion/
 ├── scripts/run_jobs.py          entry point
 ├── services/
 │   ├── etl_pipeline/
-│   │   ├── sources/api/         FRED and Yahoo Finance loaders
+│   │   ├── sources/api/         FRED, ECB and Yahoo Finance loaders
 │   │   ├── transforms/          loader output -> raw table rows
 │   │   ├── jobs/                the refresh job (CLI)
 │   │   └── loader_factory.py    builds loaders from sources.yaml

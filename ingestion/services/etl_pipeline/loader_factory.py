@@ -8,6 +8,7 @@ table.
 import os
 from pathlib import Path
 
+from services.etl_pipeline.sources.api.api_ecb import EcbSeriesLoader
 from services.etl_pipeline.sources.api.api_fred import FredSeriesLoader
 from services.etl_pipeline.sources.api.api_yahoo import YahooIndexLoader
 from services.utils import REPO_ROOT, load_yaml
@@ -159,10 +160,36 @@ def build_loaders_from_sources_yaml(
                 )
             )
 
+        elif provider == "ecb":
+            if not config.get("flow") or not config.get("series_key"):
+                raise ValueError(
+                    f"Signal '{signal_name}' needs 'flow' and 'series_key' for "
+                    f"provider ecb"
+                )
+
+            loaders.append(
+                EcbSeriesLoader(
+                    signal_name=signal_name,
+                    flow=config["flow"],
+                    series_key=config["series_key"],
+                    data_type=config.get("data_type", "metric"),
+                    market_type=config.get("market_type", "macro"),
+                    metric_code=config.get("metric_code"),
+                    metric_family_code=config.get("metric_family_code"),
+                    unit=config.get("unit"),
+                    timeframe_name=timeframe,
+                    source_code=config.get("source_code", "ecb"),
+                    source_name=config.get("source_name", "ECB"),
+                    asset_code=config.get("asset_code"),
+                    start_date=start_date,
+                    end_date=config.get("end_date"),
+                )
+            )
+
         else:
             raise ValueError(
                 f"Unsupported provider '{provider}' for signal '{signal_name}'. "
-                f"Ported so far: 'fred', 'yahoo'."
+                f"Supported: 'fred', 'yahoo', 'ecb'."
             )
 
     return loaders

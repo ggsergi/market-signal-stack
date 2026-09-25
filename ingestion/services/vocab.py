@@ -12,6 +12,7 @@ half the rows use a different variant.
 # --- source -------------------------------------------------------------
 # Provider proper name, keeping its own capitalization.
 FRED = "FRED"
+ECB = "ECB"
 YAHOO_FINANCE = "Yahoo Finance"
 BINANCE = "Binance"
 GLASSNODE = "Glassnode"
@@ -23,6 +24,7 @@ TRADING_ECONOMICS = "TradingEconomics"
 SOURCES = frozenset(
     {
         FRED,
+        ECB,
         YAHOO_FINANCE,
         BINANCE,
         GLASSNODE,
@@ -82,10 +84,22 @@ USD_MILLIONS = "usd_millions"
 # would need a conversion, and converting is a transformation the raw layer must not
 # do -- the number has to stay exactly as the source delivered it.
 USD_BILLIONS = "usd_billions"
+# Euro area aggregates from the ECB come in millions of euros. Kept in euros, not
+# converted to USD: converting is a transformation, and the raw layer does not do it.
+EUR_MILLIONS = "eur_millions"
 INDEX_UNIT = "index"
 
 UNITS = frozenset(
-    {PERCENT, PERCENTAGE_POINTS, RATIO, USD, USD_MILLIONS, USD_BILLIONS, INDEX_UNIT}
+    {
+        PERCENT,
+        PERCENTAGE_POINTS,
+        RATIO,
+        USD,
+        USD_MILLIONS,
+        USD_BILLIONS,
+        EUR_MILLIONS,
+        INDEX_UNIT,
+    }
 )
 
 # --- timeframe ----------------------------------------------------------

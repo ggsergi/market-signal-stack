@@ -33,6 +33,15 @@ providers:
       start_date: null
       end_date: null
 
+  ecb:
+    defaults:
+      source_name: "ECB"
+      source_code: "ecb"
+      market_type: "macro"
+      asset_code: null
+      start_date: null
+      end_date: null
+
   yahoo:
     defaults:
       # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
@@ -97,6 +106,25 @@ indicators:
     frequency: "monthly"
     # M2SL begins 1959-01-01.
     backfill_start_date: "1959-01-01"
+
+  # Euro area M3, the ECB's headline broad money aggregate. The FRED/OECD series
+  # the_trimarket_crew used for this stopped updating in 2023, so it comes straight
+  # from the ECB Data Portal instead (public, no API key).
+  # Monthly, published about four weeks after month end: most runs return nothing,
+  # and that is expected.
+  m3_eurozone:
+    provider: ecb
+    flow: "BSI"
+    # Stocks, working-day and seasonally adjusted, EUR millions. Browse it at
+    # https://data.ecb.europa.eu/data/datasets/BSI/BSI.M.U2.Y.V.M30.X.1.U2.2300.Z01.E
+    series_key: "M.U2.Y.V.M30.X.1.U2.2300.Z01.E"
+    data_type: metric
+    metric_code: "m3_eurozone"
+    metric_family_code: "liquidity"
+    unit: "eur_millions"
+    frequency: "monthly"
+    # The series begins 1980-01.
+    backfill_start_date: "1980-01-01"
 
   # --- Yahoo Finance -----------------------------------------------------------
   # Ticker symbols starting with ^ are indices, not tradable assets. Yahoo has no
