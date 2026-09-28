@@ -1,0 +1,53 @@
+indicator_rules:
+  move_index_volatility:
+    description: "MOVE Index as a measure of bond market volatility and systemic financial stress"
+    layer: macro
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      formula: "MOVE_MA30 = mean(MOVE over last 30 days)"
+      frequency: "daily"
+      source: "Yahoo Finance"
+      series:
+        - "^MOVE"
+      notes: "30-day moving average used to smooth daily volatility spikes."
+    normalization:
+      type: "zscore_capped"
+      rolling_window: 1000  # ~4 años
+      cap: 3
+      unit: "index_level"
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo (zscore más alto) no
+    # tiene max_exclusive (sin techo) y el último (zscore más bajo) no tiene
+    # min_inclusive (sin suelo). Misma semántica que los demás indicadores.
+    thresholds:
+      - min_inclusive: 1.0
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El índice MOVE se encuentra extremadamente elevado respecto a su historial reciente, señalando estrés severo en el mercado de bonos y alto riesgo sistémico para BTC."
+      - min_inclusive: 0.5
+        max_exclusive: 1.0
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El índice MOVE está elevado en términos históricos, indicando aumento del estrés crediticio y un entorno menos favorable para activos de riesgo como BTC."
+      - min_inclusive: -0.5
+        max_exclusive: 0.5
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El índice MOVE se sitúa en niveles normales, sin señales claras de estrés ni de estabilidad excepcional en el sistema financiero."
+      - min_inclusive: -1.0
+        max_exclusive: -0.5
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El índice MOVE se mantiene bajo respecto a su historial, indicando estabilidad crediticia y un entorno favorable para activos de riesgo como BTC."
+      - min_inclusive: null
+        max_exclusive: -1.0
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El índice MOVE se encuentra extremadamente bajo, reflejando alta estabilidad en el mercado de bonos y un entorno macroeconómico muy favorable para BTC."
