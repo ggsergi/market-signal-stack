@@ -1,0 +1,52 @@
+indicator_rules:
+  nasdaq_tech_risk_regime:
+    description: "NASDAQ 100 (^NDX) price relative to its 200-day moving average as a proxy for technology-led risk appetite"
+    layer: macro
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      formula: "distance = (ndx_close_today / MA200_ndx) - 1"
+      frequency: "daily"
+      source: "Yahoo Finance"
+      series:
+        - "^NDX"
+      notes: "Distance to 200-day moving average used as a structural indicator of technology-led risk appetite."
+    normalization:
+      type: "threshold"
+      unit: "percentage_distance"
+      rolling_window: 200
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene max_exclusive
+    # (sin techo) y el último no tiene min_inclusive (sin suelo). Misma
+    # semántica que el resto de indicadores.
+    thresholds:
+      - min_inclusive: 0.10
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El NASDAQ 100 cotiza muy por encima de su media de 200 días, indicando un entorno claramente alcista en tecnología y muy favorable para BTC."
+      - min_inclusive: 0.02
+        max_exclusive: 0.10
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El NASDAQ 100 se mantiene por encima de su media de 200 días, reflejando fortaleza en el sector tecnológico y un entorno favorable para BTC."
+      - min_inclusive: -0.02
+        max_exclusive: 0.02
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El NASDAQ 100 se mueve cerca de su media de 200 días, sin una dirección clara en el apetito por riesgo tecnológico."
+      - min_inclusive: -0.10
+        max_exclusive: -0.02
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El NASDAQ 100 cotiza por debajo de su media de 200 días, señalando debilidad en tecnología y un entorno menos favorable para BTC."
+      - min_inclusive: null
+        max_exclusive: -0.10
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El NASDAQ 100 se encuentra muy por debajo de su media de 200 días, indicando un entorno claramente bajista en tecnología y adverso para BTC."

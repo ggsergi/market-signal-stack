@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: mart_nasdaq_tech_risk
+    description: >
+      Indicador nasdaq_tech_risk_regime: distancia del NASDAQ 100 (^NDX,
+      Yahoo Finance, diario) a su media móvil de 200 días como proxy del
+      apetito por riesgo liderado por tecnología. Layer macro,
+      relevance_level 3, weight 1.1. Reglas en
+      docs/indicator_rules/nasdaq_tech_risk_regime.yaml.
+    config:
+      meta:
+        indicator_id: nasdaq_tech_risk_regime
+        layer: macro
+        relevance_level: 3
+        weight: 1.1
+    columns:
+      - name: event_time
+        tests:
+          - unique
+          - not_null
+      - name: close
+        description: "Cierre diario del NASDAQ 100 (metric 'ndx')."
+      - name: daily_change_pct
+        description: "Variación respecto al cierre anterior, como fracción (0.01 = +1%). NULL en la primera fila."
+      - name: distance_to_ma200
+        description: >
+          (close / MA200) - 1. NULL hasta completar la ventana de 200
+          observaciones; el not_null desde la fila 200 lo cubre
+          tests/assert_nasdaq_tech_risk_not_null_after_ma200.sql.
+      - name: signal
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
