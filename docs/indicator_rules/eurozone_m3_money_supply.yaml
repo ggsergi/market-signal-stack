@@ -1,0 +1,53 @@
+indicator_rules:
+  eurozone_m3_money_supply:
+    description: "Eurozone M3 money supply YoY growth as a proxy for regional liquidity conditions (using M3 as broader proxy; M2 not yet ingested)"
+    layer: macro
+    relevance_level: 2
+    weight: 0.9
+    calculation:
+      formula: "m3_yoy = (M3_current / M3_12_months_ago) - 1"
+      frequency: "monthly"
+      source: "ECB"
+      notes: "Year-over-year growth rate used to remove seasonality effects. Uses M3 (broader monetary aggregate) as a proxy for M2."
+    normalization:
+      type: "percentile"
+      rolling_window: 180  # meses (~15 años)
+      unit: "percentage_yoy"
+    # Los thresholds se aplican sobre el percentil de m3_yoy dentro de sus
+    # últimas 180 observaciones (incluida la actual): fracción de esos 180
+    # valores que son <= al actual, en [0, 1].
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene max_exclusive
+    # (sin techo) y el último no tiene min_inclusive (sin suelo). Misma
+    # semántica que el resto de indicadores.
+    thresholds:
+      - min_inclusive: 0.9
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El crecimiento del M3 de la Eurozona es extremadamente alto en términos históricos, indicando una fuerte expansión de liquidez que puede apoyar el apetito por riesgo y BTC."
+      - min_inclusive: 0.7
+        max_exclusive: 0.9
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El crecimiento del M3 de la Eurozona es elevado respecto a su historial, reflejando expansión de liquidez con impacto positivo en el entorno macro."
+      - min_inclusive: 0.3
+        max_exclusive: 0.7
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El crecimiento del M3 de la Eurozona se sitúa en niveles históricos normales, sin señales claras de expansión ni contracción monetaria relevantes."
+      - min_inclusive: 0.1
+        max_exclusive: 0.3
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M3 de la Eurozona es débil en términos históricos, señalando contracción de liquidez y un entorno menos favorable para BTC."
+      - min_inclusive: null
+        max_exclusive: 0.1
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M3 de la Eurozona es extremadamente bajo, indicando una contracción monetaria severa con impacto negativo en la liquidez y en BTC."

@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: mart_eurozone_m3
+    description: >
+      Indicador eurozone_m3_money_supply: percentil del crecimiento interanual
+      del M3 de la Eurozona (ECB, mensual) dentro de sus últimos 180 meses,
+      como proxy de las condiciones de liquidez regionales. Usa M3 como proxy
+      de M2 (M2 aún no ingerido). Layer macro, relevance_level 2, weight 0.9.
+      Reglas en docs/indicator_rules/eurozone_m3_money_supply.yaml.
+    config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        # El principal real vive en la variable de entorno
+        # SARA_MARTS_READER_PRINCIPAL (no versionada) para no exponer el
+        # nombre real de la cuenta de servicio en un repo público. El valor
+        # por defecto es solo un placeholder ilustrativo.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
+      meta:
+        indicator_id: eurozone_m3_money_supply
+        layer: macro
+        relevance_level: 2
+        weight: 0.9
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: value
+        data_type: FLOAT64
+        description: "Nivel de M3 de la Eurozona en millones de EUR (metric 'm3_eurozone')."
+      - name: m3_yoy
+        data_type: FLOAT64
+        description: "(M3 / M3 de hace 12 meses) - 1, como fracción. NULL en los primeros 12 meses."
+      - name: yoy_percentile
+        data_type: FLOAT64
+        description: >
+          Fracción de las últimas 180 observaciones de m3_yoy (incluida la
+          actual) que son <= a la actual, en [0, 1]. NULL hasta completar la
+          ventana (mes 192 de la serie); el not_null a partir de ahí lo cubre
+          tests/assert_eurozone_m3_not_null_after_window.sql.
+      - name: normalized_value
+        data_type: FLOAT64
+      - name: signal
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
