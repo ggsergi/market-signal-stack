@@ -8,9 +8,12 @@ indicator_rules:
       formula: "m2_yoy = (M2_current / M2_12_months_ago) - 1"
       frequency: "monthly"
       source: "Trading Economics"
+      # Identificador en la fuente, como en el resto de reglas (M2SL, ^NDX...):
+      # para TradingEconomics es la ruta de la página scrapeada. En
+      # raw_market_metrics se guarda como metric = 'm2_china'.
       series:
-        - CHINA_M2
-      notes: "Year-over-year growth rate to avoid seasonality."
+        - "china/money-supply-m2"
+      notes: "Year-over-year growth rate to avoid seasonality. Scraped from tradingeconomics.com/china/money-supply-m2 (metric 'm2_china' in raw_market_metrics). The page only exposes the last two months, so there is no backfill: history accumulates one month at a time from 2026-07."
     normalization:
       type: "percentile"
       rolling_window: 120  # meses (~10 años)
