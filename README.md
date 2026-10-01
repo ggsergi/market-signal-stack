@@ -102,7 +102,8 @@ uv run dbt test         # run the tests
 
 This pipeline isn't a loose script: every layer has its own automated checks.
 
-- **Source freshness**: warns if the raw data hasn't updated in over 1 day, and fails past 3 days (only for the daily-cadence metrics).
+- **Source freshness**: one check per load cadence — daily metrics warn after 1 day without new rows and fail after 3, weekly after 10/14 days, monthly after 40/60 days.
+- **Per-metric freshness**: dbt's source freshness only looks at the most recent row across a whole cadence group, so one metric can stop loading unnoticed while the others in its group keep it looking fresh. A dedicated test (`assert_per_metric_freshness`) applies the same thresholds metric by metric and fails naming each metric that went stale. It reads those thresholds from the source freshness config, so both checks always stay aligned.
 - **Data integrity**: key columns are never null, and the metric + date combination is unique (no duplicates).
 - **Data contracts**: every mart enforces its schema (column names and BigQuery types) at build time — if the SQL output drifts from the declared schema, the build fails instead of silently changing the table the agent reads. Read access for the agent's service account is granted per table by dbt itself.
 - **Forward-fill guardrail**: a dedicated test fails if an indicator has been carrying forward the same value for more than 5 days in a row — a sign the source pipeline stopped delivering data and no one noticed.
