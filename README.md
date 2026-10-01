@@ -26,6 +26,7 @@ flowchart LR
     end
     subgraph marts["marts"]
         mart_dxy["mart_dxy"]
+        mart_eurozone_m3["mart_eurozone_m3"]
         mart_fed_balance_sheet["mart_fed_balance_sheet"]
         mart_move["mart_move"]
         mart_nasdaq_tech_risk["mart_nasdaq_tech_risk"]
@@ -35,6 +36,7 @@ flowchart LR
     end
     raw_market_metrics --> stg_market_metrics
     stg_market_metrics --> mart_dxy
+    stg_market_metrics --> mart_eurozone_m3
     stg_market_metrics --> mart_fed_balance_sheet
     stg_market_metrics --> mart_move
     stg_market_metrics --> mart_nasdaq_tech_risk
@@ -51,7 +53,7 @@ flowchart LR
 
 ## Current status
 
-Seven indicators built, all in the Macro Global layer:
+Eight indicators built, all in the Macro Global layer:
 
 - **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread between the 10-year and 2-year US Treasury yields, a recession-risk and risk-appetite signal. Computes the daily spread, a categorical signal (`BULLISH` / `NEUTRAL` / `BEARISH`) with a normalized value, and applies forward-fill when one of the two series is missing for a given day — each row explicitly flags whether its value is real or carried forward (`is_dgs2_imputed`, `is_dgs10_imputed`).
 - **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): weekly change in the Federal Reserve's balance sheet (WALCL), a liquidity expansion/contraction signal. Computes the week-over-week delta and the same normalized categorical signal.
@@ -59,9 +61,10 @@ Seven indicators built, all in the Macro Global layer:
 - **VIX (Volatility Index)** (`mart_vix`): z-score (capped at ±3) of the VIX's 20-day moving average against its 750-day history, a risk-aversion signal. Same as DXY, the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
 - **S&P 500 Risk Regime** (`mart_spx`): distance of the S&P 500 from its 200-day moving average, a structural risk-appetite signal. Same as DXY, the signal is left `NULL` until 200 days of real history accumulate.
 - **NASDAQ 100 Tech Risk Regime** (`mart_nasdaq_tech_risk`): distance of the NASDAQ 100 (^NDX) from its 200-day moving average, a technology-led risk-appetite signal. Same pattern as SPX, and it also exposes the daily change plus the `btc_bias` and `message` for each threshold from its rules file. The signal is left `NULL` until 200 days of real history accumulate.
+- **Eurozone M3 Money Supply** (`mart_eurozone_m3`): year-over-year growth of euro area M3 (ECB, monthly), ranked as a percentile against its own last 180 months (~15 years), a regional liquidity signal. M3 is used as a proxy for M2, which isn't ingested yet — since the signal is a percentile of the series against its own history, the thresholds work the same on M3's distribution. With history back to 1980, it's the first indicator with a signal over a long track record (from 1995-12 onward).
 - **MOVE Index** (`mart_move`): z-score (capped at ±3) of the MOVE Index's 30-day moving average against its 1000-day history, a bond-market volatility and systemic-stress signal. Same as VIX, the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
 
-All seven follow the same pattern: generic staging, a mart with the business logic, rules documented in `docs/indicator_rules/`, tests, and a data contract.
+All eight follow the same pattern: generic staging, a mart with the business logic, rules documented in `docs/indicator_rules/`, tests, and a data contract.
 
 ## Indicators in progress
 
@@ -73,7 +76,7 @@ In the meantime, those marts intentionally return `NULL` for `signal`/`normalize
 
 ## Roadmap
 
-Yield Curve, FED Balance Sheet, DXY, VIX, SPX, NASDAQ 100, and MOVE are the first indicators in a broader **Macro Global** layer — macroeconomic signals meant to feed BTC market-cycle evaluation. The plan is to keep expanding this layer with more macro indicators reusing the same pattern (staging, mart, versioned rules, tests, data contract), and to use it as the foundation for other signal layers down the line.
+Yield Curve, FED Balance Sheet, DXY, VIX, SPX, NASDAQ 100, MOVE, and Eurozone M3 are the first indicators in a broader **Macro Global** layer — macroeconomic signals meant to feed BTC market-cycle evaluation. The plan is to keep expanding this layer with more macro indicators reusing the same pattern (staging, mart, versioned rules, tests, data contract), and to use it as the foundation for other signal layers down the line.
 
 ## Running it
 
