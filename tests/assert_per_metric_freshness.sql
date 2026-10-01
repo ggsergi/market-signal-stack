@@ -11,6 +11,11 @@
 --
 -- depends_on: {{ source('market_signal_stack', 'raw_market_metrics') }}
 
+-- warn y no error: una sola métrica caída no debe parar el build diario
+-- completo (el resto de marts se sigue refrescando); se ve en el log. Se
+-- revisará a error cuando el pipeline de ingesta esté más maduro.
+{{ config(severity='warn') }}
+
 {%- set seconds_per_period = {'minute': 60, 'hour': 3600, 'day': 86400} -%}
 {%- set blocks = [] -%}
 {%- if execute -%}
