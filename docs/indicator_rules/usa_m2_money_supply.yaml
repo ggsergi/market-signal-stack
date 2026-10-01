@@ -1,0 +1,55 @@
+indicator_rules:
+  usa_m2_money_supply:
+    description: "US M2 money supply YoY growth as a proxy for domestic and global liquidity conditions"
+    layer: macro
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      formula: "m2_yoy = (M2_current / M2_12_months_ago) - 1"
+      frequency: "monthly"
+      source: "FRED"
+      series:
+        - M2SL
+      notes: "Year-over-year growth rate used to remove seasonality effects."
+    normalization:
+      type: "percentile"
+      rolling_window: 240  # meses (~20 años)
+      unit: "percentage_yoy"
+    # Los thresholds se aplican sobre el percentil de m2_yoy dentro de sus
+    # últimas 240 observaciones (incluida la actual): fracción de esos 240
+    # valores que son <= al actual, en [0, 1].
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene max_exclusive
+    # (sin techo) y el último no tiene min_inclusive (sin suelo). Misma
+    # semántica que el resto de indicadores.
+    thresholds:
+      - min_inclusive: 0.9
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El crecimiento del M2 de EE.UU. es extremadamente alto en términos históricos, indicando una fuerte expansión monetaria y un entorno muy favorable para activos de riesgo como BTC."
+      - min_inclusive: 0.7
+        max_exclusive: 0.9
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El crecimiento del M2 de EE.UU. es elevado respecto a su historial, reflejando expansión monetaria y apoyo a la liquidez global."
+      - min_inclusive: 0.3
+        max_exclusive: 0.7
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El crecimiento del M2 de EE.UU. se sitúa en niveles históricos normales, sin señales claras de expansión ni contracción monetaria relevantes."
+      - min_inclusive: 0.1
+        max_exclusive: 0.3
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M2 de EE.UU. es débil en términos históricos, señalando drenaje de liquidez y posibles presiones bajistas sobre BTC."
+      - min_inclusive: null
+        max_exclusive: 0.1
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M2 de EE.UU. es extremadamente bajo, indicando una contracción monetaria severa con impacto negativo en la liquidez y en BTC."
