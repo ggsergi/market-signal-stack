@@ -95,6 +95,7 @@ This pipeline isn't a loose script: every layer has its own automated checks.
 
 - **Source freshness**: warns if the raw data hasn't updated in over 1 day, and fails past 3 days (only for the daily-cadence metrics).
 - **Data integrity**: key columns are never null, and the metric + date combination is unique (no duplicates).
+- **Data contracts**: every mart enforces its schema (column names and BigQuery types) at build time — if the SQL output drifts from the declared schema, the build fails instead of silently changing the table the agent reads. Read access for the agent's service account is granted per table by dbt itself.
 - **Forward-fill guardrail**: a dedicated test fails if an indicator has been carrying forward the same value for more than 5 days in a row — a sign the source pipeline stopped delivering data and no one noticed.
 
 For finer technical detail — code conventions, exact commands, known gotchas — see [CLAUDE.md](CLAUDE.md).
