@@ -2,12 +2,32 @@ version: 2
 
 models:
   - name: mart_dxy
+    config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        # El principal real vive en la variable de entorno
+        # SARA_MARTS_READER_PRINCIPAL (no versionada) para no exponer el
+        # nombre real de la cuenta de servicio en un repo público. El valor
+        # por defecto es solo un placeholder ilustrativo.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
     columns:
       - name: event_time
+        data_type: TIMESTAMP
         tests:
           - unique
           - not_null
+      - name: value
+        data_type: FLOAT64
+      - name: ma50
+        data_type: FLOAT64
+      - name: distance
+        data_type: FLOAT64
+      - name: normalized_value
+        data_type: FLOAT64
       - name: signal
+        data_type: STRING
         tests:
           - accepted_values:
               arguments:

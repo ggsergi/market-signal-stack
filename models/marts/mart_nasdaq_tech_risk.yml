@@ -9,6 +9,15 @@ models:
       relevance_level 3, weight 1.1. Reglas en
       docs/indicator_rules/nasdaq_tech_risk_regime.yaml.
     config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        # El principal real vive en la variable de entorno
+        # SARA_MARTS_READER_PRINCIPAL (no versionada) para no exponer el
+        # nombre real de la cuenta de servicio en un repo público. El valor
+        # por defecto es solo un placeholder ilustrativo.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
       meta:
         indicator_id: nasdaq_tech_risk_regime
         layer: macro
@@ -16,25 +25,35 @@ models:
         weight: 1.1
     columns:
       - name: event_time
+        data_type: TIMESTAMP
         tests:
           - unique
           - not_null
       - name: close
+        data_type: FLOAT64
         description: "Cierre diario del NASDAQ 100 (metric 'ndx')."
       - name: daily_change_pct
+        data_type: FLOAT64
         description: "Variación respecto al cierre anterior, como fracción (0.01 = +1%). NULL en la primera fila."
       - name: distance_to_ma200
+        data_type: FLOAT64
         description: >
           (close / MA200) - 1. NULL hasta completar la ventana de 200
           observaciones; el not_null desde la fila 200 lo cubre
           tests/assert_nasdaq_tech_risk_not_null_after_ma200.sql.
+      - name: normalized_value
+        data_type: FLOAT64
       - name: signal
+        data_type: STRING
         tests:
           - accepted_values:
               arguments:
                 values: ['BULLISH', 'NEUTRAL', 'BEARISH']
       - name: btc_bias
+        data_type: STRING
         tests:
           - accepted_values:
               arguments:
                 values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
