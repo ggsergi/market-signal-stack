@@ -1,0 +1,55 @@
+indicator_rules:
+  china_m2_money_supply:
+    description: "China M2 money supply YoY growth as a proxy for global liquidity expansion or contraction"
+    layer: macro
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      formula: "m2_yoy = (M2_current / M2_12_months_ago) - 1"
+      frequency: "monthly"
+      source: "Trading Economics"
+      series:
+        - CHINA_M2
+      notes: "Year-over-year growth rate to avoid seasonality."
+    normalization:
+      type: "percentile"
+      rolling_window: 120  # meses (~10 años)
+      unit: "percentage_yoy"
+    # Los thresholds se aplican sobre el percentil de m2_yoy dentro de sus
+    # últimas 120 observaciones (incluida la actual): fracción de esos 120
+    # valores que son <= al actual, en [0, 1].
+    # Cada tramo es [min_inclusive, max_exclusive): el límite inferior incluye
+    # ese valor exacto, el superior no. El primer tramo no tiene max_exclusive
+    # (sin techo) y el último no tiene min_inclusive (sin suelo). Misma
+    # semántica que el resto de indicadores.
+    thresholds:
+      - min_inclusive: 0.9
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El crecimiento del M2 de China es extremadamente alto en términos históricos, indicando una fuerte expansión monetaria que impulsa la liquidez global y favorece activos de riesgo como BTC."
+      - min_inclusive: 0.7
+        max_exclusive: 0.9
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El M2 de China está creciendo a un ritmo elevado respecto a su historial, indicando expansión monetaria y un entorno favorable para la liquidez global."
+      - min_inclusive: 0.3
+        max_exclusive: 0.7
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El crecimiento del M2 de China se encuentra en niveles históricos normales, sin señales claras de expansión o contracción monetaria relevantes."
+      - min_inclusive: 0.1
+        max_exclusive: 0.3
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M2 de China es débil en términos históricos, señalando una contracción monetaria que puede presionar la liquidez global y BTC."
+      - min_inclusive: null
+        max_exclusive: 0.1
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El crecimiento del M2 de China es extremadamente bajo, indicando una contracción monetaria severa o estrés económico con impacto negativo en la liquidez global y BTC."
