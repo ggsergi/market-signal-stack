@@ -29,3 +29,27 @@ sources:
               - not_null
           - name: ingested_at
           - name: payload
+
+      # Misma tabla física que raw_market_metrics, declarada otra vez solo
+      # para vigilar la freshness de las métricas mensuales (m3_eurozone,
+      # m2_usa, m2_china, ...) con umbrales propios. No la usa ningún modelo
+      # (stg_market_metrics lee raw_market_metrics) ni lleva tests: esos ya
+      # van en la tabla de arriba. El filtro es por timeframe, así que una
+      # métrica mensual nueva queda cubierta sin tocar esta lista.
+      - name: raw_market_metrics_monthly
+        identifier: raw_market_metrics
+        config:
+          freshness:
+            filter: "timeframe = '1mo'"
+            warn_after: {count: 40, period: day}
+            error_after: {count: 60, period: day}
+
+      # Mismo patrón que raw_market_metrics_monthly, para las métricas de
+      # cadencia semanal (hoy solo fed_liquidity, WALCL de FRED).
+      - name: raw_market_metrics_weekly
+        identifier: raw_market_metrics
+        config:
+          freshness:
+            filter: "timeframe = '1wk'"
+            warn_after: {count: 10, period: day}
+            error_after: {count: 14, period: day}
