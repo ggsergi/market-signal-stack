@@ -20,6 +20,7 @@ ALTERNATIVE_ME = "Alternative.me"
 FARSIDE = "Farside Investors"
 BTC_MAGAZINE_PRO = "Bitcoin Magazine Pro"
 TRADING_ECONOMICS = "TradingEconomics"
+COIN_METRICS = "Coin Metrics"
 
 SOURCES = frozenset(
     {
@@ -32,6 +33,7 @@ SOURCES = frozenset(
         FARSIDE,
         BTC_MAGAZINE_PRO,
         TRADING_ECONOMICS,
+        COIN_METRICS,
     }
 )
 
@@ -90,6 +92,8 @@ EUR_MILLIONS = "eur_millions"
 # China's M2 as TradingEconomics states it (PBoC figures), unconverted.
 CNY_BILLIONS = "cny_billions"
 INDEX_UNIT = "index"
+# Native bitcoin units: on-chain supply and exchange flows are counted in BTC.
+BTC = "btc"
 
 UNITS = frozenset(
     {
@@ -102,6 +106,7 @@ UNITS = frozenset(
         EUR_MILLIONS,
         CNY_BILLIONS,
         INDEX_UNIT,
+        BTC,
     }
 )
 

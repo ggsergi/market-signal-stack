@@ -1,7 +1,7 @@
 # Ingestion
 
-Downloads market and macro data from FRED, the ECB, Yahoo Finance and TradingEconomics
-and lands it in
+Downloads market, macro and on-chain data from FRED, the ECB, Yahoo Finance,
+TradingEconomics and Coin Metrics and lands it in
 BigQuery, in `raw_market_signals.raw_market_metrics`. That table is the source the
 dbt project in the repo root reads from.
 
@@ -94,6 +94,11 @@ Defined in `config/sources.yaml`:
 | `vix_index` | `vix` | Yahoo Finance | `^VIX` | daily |
 | `move_index` | `move` | Yahoo Finance | `^MOVE` | daily |
 | `btc_price` | `btc_price` | Yahoo Finance | `BTC-USD` | daily |
+| `btc_mvrv` | `btc_mvrv` | Coin Metrics | `CapMVRVCur` | daily |
+| `btc_market_cap` | `btc_market_cap` | Coin Metrics | `CapMrktCurUSD` | daily |
+| `btc_supply` | `btc_supply` | Coin Metrics | `SplyCur` | daily |
+| `btc_exchange_inflow` | `btc_exchange_inflow` | Coin Metrics | `FlowInExNtv` | daily |
+| `btc_exchange_outflow` | `btc_exchange_outflow` | Coin Metrics | `FlowOutExNtv` | daily |
 
 ### Adding an indicator
 
@@ -120,7 +125,7 @@ ingestion/
 ├── scripts/run_jobs.py          entry point
 ├── services/
 │   ├── etl_pipeline/
-│   │   ├── sources/api/         FRED, ECB and Yahoo Finance loaders
+│   │   ├── sources/api/         FRED, ECB, Yahoo Finance and Coin Metrics loaders
 │   │   ├── sources/html/        TradingEconomics scraper
 │   │   ├── transforms/          loader output -> raw table rows
 │   │   ├── jobs/                the refresh job (CLI)

@@ -51,6 +51,16 @@ providers:
       start_date: null
       end_date: null
 
+  coinmetrics:
+    defaults:
+      source_name: "Coin Metrics"
+      source_code: "coinmetrics"
+      market_type: "crypto"
+      cm_asset: "btc"
+      asset_code: null
+      start_date: null
+      end_date: null
+
   yahoo:
     defaults:
       # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
@@ -223,3 +233,60 @@ indicators:
     metric_family_code: "price"
     unit: "usd"
     backfill_start_date: "2014-09-17"
+
+  # --- Coin Metrics (community API) --------------------------------------------
+  # Free, no key. Raw building blocks for the on-chain indicators: realized cap is
+  # market cap / MVRV, realized price is realized cap / supply, NUPL is 1 - 1/MVRV,
+  # and the MVRV Z-Score comes from market cap and realized cap. Those derivations
+  # belong to dbt; only the published series land here.
+  btc_mvrv:
+    provider: coinmetrics
+    metric_id: "CapMVRVCur"
+    data_type: metric
+    metric_code: "btc_mvrv"
+    metric_family_code: "on_chain"
+    unit: "ratio"
+    frequency: "daily"
+    backfill_start_date: "2010-07-18"
+
+  btc_market_cap:
+    provider: coinmetrics
+    metric_id: "CapMrktCurUSD"
+    data_type: metric
+    metric_code: "btc_market_cap"
+    metric_family_code: "on_chain"
+    unit: "usd"
+    frequency: "daily"
+    backfill_start_date: "2010-07-18"
+
+  btc_supply:
+    provider: coinmetrics
+    metric_id: "SplyCur"
+    data_type: metric
+    metric_code: "btc_supply"
+    metric_family_code: "on_chain"
+    unit: "btc"
+    frequency: "daily"
+    backfill_start_date: "2010-07-18"
+
+  # Exchange flows are published as 'flash' and revised later; the rolling window
+  # re-reads the last 30 days, so revisions reach the raw table through the MERGE.
+  btc_exchange_inflow:
+    provider: coinmetrics
+    metric_id: "FlowInExNtv"
+    data_type: metric
+    metric_code: "btc_exchange_inflow"
+    metric_family_code: "flows"
+    unit: "btc"
+    frequency: "daily"
+    backfill_start_date: "2011-04-24"
+
+  btc_exchange_outflow:
+    provider: coinmetrics
+    metric_id: "FlowOutExNtv"
+    data_type: metric
+    metric_code: "btc_exchange_outflow"
+    metric_family_code: "flows"
+    unit: "btc"
+    frequency: "daily"
+    backfill_start_date: "2011-04-24"

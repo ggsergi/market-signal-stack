@@ -8,6 +8,7 @@ table.
 import os
 from pathlib import Path
 
+from services.etl_pipeline.sources.api.api_coinmetrics import CoinMetricsLoader
 from services.etl_pipeline.sources.api.api_ecb import EcbSeriesLoader
 from services.etl_pipeline.sources.api.api_fred import FredSeriesLoader
 from services.etl_pipeline.sources.api.api_yahoo import YahooIndexLoader
@@ -213,10 +214,36 @@ def build_loaders_from_sources_yaml(
                 )
             )
 
+        elif provider == "coinmetrics":
+            if not config.get("metric_id"):
+                raise ValueError(
+                    f"Signal '{signal_name}' is missing 'metric_id' for provider "
+                    f"coinmetrics"
+                )
+
+            loaders.append(
+                CoinMetricsLoader(
+                    signal_name=signal_name,
+                    metric_id=config["metric_id"],
+                    cm_asset=config.get("cm_asset", "btc"),
+                    data_type=config.get("data_type", "metric"),
+                    market_type=config.get("market_type", "crypto"),
+                    metric_code=config.get("metric_code"),
+                    metric_family_code=config.get("metric_family_code"),
+                    unit=config.get("unit"),
+                    timeframe_name=timeframe,
+                    source_code=config.get("source_code", "coinmetrics"),
+                    source_name=config.get("source_name", "Coin Metrics"),
+                    asset_code=config.get("asset_code"),
+                    start_date=start_date,
+                    end_date=config.get("end_date"),
+                )
+            )
+
         else:
             raise ValueError(
                 f"Unsupported provider '{provider}' for signal '{signal_name}'. "
-                f"Supported: 'fred', 'yahoo', 'ecb', 'tradingeconomics'."
+                f"Supported: 'fred', 'yahoo', 'ecb', 'tradingeconomics', 'coinmetrics'."
             )
 
     return loaders
