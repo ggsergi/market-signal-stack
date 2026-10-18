@@ -12,6 +12,7 @@ from services.etl_pipeline.sources.api.api_coinmetrics import CoinMetricsLoader
 from services.etl_pipeline.sources.api.api_ecb import EcbSeriesLoader
 from services.etl_pipeline.sources.api.api_fred import FredSeriesLoader
 from services.etl_pipeline.sources.api.api_yahoo import YahooIndexLoader
+from services.etl_pipeline.sources.html.farside import FarsideEtfFlowLoader
 from services.etl_pipeline.sources.html.tradingeconomics import TradingEconomicsLoader
 from services.utils import REPO_ROOT, load_yaml
 
@@ -240,10 +241,35 @@ def build_loaders_from_sources_yaml(
                 )
             )
 
+        elif provider == "farside":
+            if not config.get("url"):
+                raise ValueError(
+                    f"Signal '{signal_name}' is missing 'url' for provider farside"
+                )
+
+            loaders.append(
+                FarsideEtfFlowLoader(
+                    signal_name=signal_name,
+                    url=config["url"],
+                    data_type=config.get("data_type", "metric"),
+                    market_type=config.get("market_type", "crypto"),
+                    metric_code=config.get("metric_code"),
+                    metric_family_code=config.get("metric_family_code"),
+                    unit=config.get("unit"),
+                    timeframe_name=timeframe,
+                    source_code=config.get("source_code", "farside"),
+                    source_name=config.get("source_name", "Farside Investors"),
+                    asset_code=config.get("asset_code"),
+                    start_date=start_date,
+                    end_date=config.get("end_date"),
+                )
+            )
+
         else:
             raise ValueError(
                 f"Unsupported provider '{provider}' for signal '{signal_name}'. "
-                f"Supported: 'fred', 'yahoo', 'ecb', 'tradingeconomics', 'coinmetrics'."
+                f"Supported: 'fred', 'yahoo', 'ecb', 'tradingeconomics', 'coinmetrics', "
+                f"'farside'."
             )
 
     return loaders

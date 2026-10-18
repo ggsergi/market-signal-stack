@@ -1,7 +1,7 @@
 # Ingestion
 
 Downloads market, macro and on-chain data from FRED, the ECB, Yahoo Finance,
-TradingEconomics and Coin Metrics and lands it in
+TradingEconomics, Coin Metrics and Farside and lands it in
 BigQuery, in `raw_market_signals.raw_market_metrics`. That table is the source the
 dbt project in the repo root reads from.
 
@@ -99,6 +99,7 @@ Defined in `config/sources.yaml`:
 | `btc_supply` | `btc_supply` | Coin Metrics | `SplyCur` | daily |
 | `btc_exchange_inflow` | `btc_exchange_inflow` | Coin Metrics | `FlowInExNtv` | daily |
 | `btc_exchange_outflow` | `btc_exchange_outflow` | Coin Metrics | `FlowOutExNtv` | daily |
+| `btc_etf_net_flow` | `btc_etf_net_flow` | Farside Investors (scraped) | `bitcoin-etf-flow-all-data` | daily |
 
 ### Adding an indicator
 
@@ -126,7 +127,7 @@ ingestion/
 ├── services/
 │   ├── etl_pipeline/
 │   │   ├── sources/api/         FRED, ECB, Yahoo Finance and Coin Metrics loaders
-│   │   ├── sources/html/        TradingEconomics scraper
+│   │   ├── sources/html/        TradingEconomics and Farside scrapers
 │   │   ├── transforms/          loader output -> raw table rows
 │   │   ├── jobs/                the refresh job (CLI)
 │   │   └── loader_factory.py    builds loaders from sources.yaml

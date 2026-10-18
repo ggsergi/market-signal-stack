@@ -61,6 +61,15 @@ providers:
       start_date: null
       end_date: null
 
+  farside:
+    defaults:
+      source_name: "Farside Investors"
+      source_code: "farside"
+      market_type: "crypto"
+      asset_code: null
+      start_date: null
+      end_date: null
+
   yahoo:
     defaults:
       # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
@@ -290,3 +299,17 @@ indicators:
     unit: "btc"
     frequency: "daily"
     backfill_start_date: "2011-04-24"
+
+  # --- Farside (HTML scraping) ---------------------------------------------------
+  # Daily net flow across all US spot bitcoin ETFs, in US$ millions (the page's Total
+  # column); the per-ETF split is kept in payload. The "all data" page carries the
+  # full history, so the daily run and --backfill read the same page.
+  btc_etf_net_flow:
+    provider: farside
+    url: "https://farside.co.uk/bitcoin-etf-flow-all-data/"
+    data_type: metric
+    metric_code: "btc_etf_net_flow"
+    metric_family_code: "flows"
+    unit: "usd_millions"
+    frequency: "daily"
+    backfill_start_date: "2024-01-11"
