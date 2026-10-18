@@ -23,6 +23,22 @@ Credentials are never committed. Before running:
 
 All commands below run from the `ingestion/` directory.
 
+### Connect from a new terminal (PowerShell)
+
+No `gcloud auth login` is needed: the service account key in `ingestion/config/` is
+picked up automatically. Only `GCP_PROJECT_ID` has to be set, and it lasts for the
+current terminal only, so repeat this in every new one:
+
+```powershell
+cd <repo>\ingestion
+# Read the project id from the key itself, so both always match
+$env:GCP_PROJECT_ID = (Get-Content config\GOOGLE_APPLICATION_CREDENTIALS.json | ConvertFrom-Json).project_id
+uv run python test_bigquery_connection.py
+```
+
+An error like `Credentials point to project ...` means the key and `GCP_PROJECT_ID`
+refer to different projects.
+
 ## Check the connection
 
 ```bash
@@ -73,6 +89,7 @@ Defined in `config/sources.yaml`:
 | `m2_china` | `m2_china` | TradingEconomics (scraped) | `china/money-supply-m2` | monthly |
 | `spx_index` | `spx` | Yahoo Finance | `^GSPC` | daily |
 | `ndx_index` | `ndx` | Yahoo Finance | `^NDX` | daily |
+| `mags_etf` | `mags` | Yahoo Finance | `MAGS` | daily |
 | `dxy_index` | `dxy` | Yahoo Finance | `^NYICDX` | daily |
 | `vix_index` | `vix` | Yahoo Finance | `^VIX` | daily |
 | `move_index` | `move` | Yahoo Finance | `^MOVE` | daily |
