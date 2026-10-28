@@ -6,7 +6,7 @@ sources:
     config:
       loaded_at_field: ingested_at
       freshness:
-        filter: "metric IN ('yield_2y', 'yield_10y', 'spx', 'ndx', 'dxy', 'vix', 'move', 'btc_price')"
+        filter: "metric IN ('yield_2y', 'yield_10y', 'spx', 'ndx', 'dxy', 'vix', 'move', 'btc_price', 'btc_etf_net_flow', 'btc_exchange_inflow', 'btc_exchange_outflow')"
         warn_after: {count: 1, period: day}
         error_after: {count: 3, period: day}
     tables:
