@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH dxy AS (
     SELECT
         event_time,

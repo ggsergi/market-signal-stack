@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: int_vix
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: value
+        data_type: FLOAT64
+      - name: vix_ma20
+        data_type: FLOAT64
+      - name: zscore
+        data_type: FLOAT64
+      - name: normalized_value
+        data_type: FLOAT64
+      - name: signal
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']

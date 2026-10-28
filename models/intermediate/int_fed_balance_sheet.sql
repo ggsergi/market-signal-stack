@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH fed_liquidity AS (
     -- El source reporta `value` en usd_millions (ver columna `unit` en
     -- raw_market_metrics para este metric). Se convierte a USD completos aquí

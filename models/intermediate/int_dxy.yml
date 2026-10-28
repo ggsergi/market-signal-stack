@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: int_dxy
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: value
+        data_type: FLOAT64
+      - name: ma50
+        data_type: FLOAT64
+      - name: distance
+        data_type: FLOAT64
+      - name: normalized_value
+        data_type: FLOAT64
+      - name: signal
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']

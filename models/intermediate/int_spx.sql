@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH spx AS (
     SELECT
         event_time,

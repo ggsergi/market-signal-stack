@@ -20,5 +20,12 @@ models:
     +materialized: view
     staging:
       +materialized: ephemeral
+    # Un int_<indicador> por indicador (fórmula + señal) y un
+    # int_<capa>_signals por capa. Vistas: sin almacenamiento, consultables
+    # y testeables; la interfaz pública son los marts de capa.
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
   elementary:
     +schema: "elementary"

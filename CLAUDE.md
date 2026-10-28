@@ -3,7 +3,7 @@
 Proyecto dbt sobre BigQuery (region `EU`; el project ID real de GCP no se
 versiona, ver `CLAUDE.local.md`) que transforma
 métricas de mercado crudas (`raw_market_signals.raw_market_metrics`) en modelos
-de staging y marts en `market_signal_marts`.
+de staging, intermediate y marts en `market_signal_marts`.
 
 ## Documentación externa
 - Las rutas locales a fuentes de convenciones y aprendizajes previos (Capstone
@@ -19,6 +19,8 @@ de staging y marts en `market_signal_marts`.
 ## Comandos y arquitectura
 - Usar siempre `uv run dbt <comando>` — el venv no está activado por defecto.
 - `raw_market_signals` es solo origen (no lo construye dbt); `market_signal_marts` es el schema destino por defecto.
+- Capas: `staging/` (ephemeral, sin lógica) → `intermediate/` (vistas: un `int_<indicador>` con fórmula y señal, y un `int_<capa>_signals` por capa) → `marts/` (tablas: un mart por capa, p. ej. `mart_macro_global`, con contract y grants). No se crean marts por indicador.
+- Para probar cambios sin tocar el dataset que lee el agente: `--target refactor` (output en `~/.dbt/profiles.yml`, dataset `market_signal_marts_refactor`).
 - `profiles.yml` vive en `~/.dbt/`, no en el repo. Usa `method: oauth` vía Application Default Credentials (`gcloud auth application-default login`), distinto del login normal (`gcloud auth login`).
 
 ## Convenciones
@@ -30,4 +32,4 @@ de staging y marts en `market_signal_marts`.
 ## Gotchas
 - La lista de métricas diarias en `freshness.filter` (`_sources.yml`) es manual — al añadir una métrica de cadencia diaria hay que sumarla ahí también.
 - `google-genai` / `vertexai` en `uv.lock` son residuo de una exploración anterior sin usar — ignorar, no es integración activa.
-- El `grants` de `mart_yield_curve.yml` usa `env_var('SARA_MARTS_READER_PRINCIPAL', ...)` con un placeholder por defecto — el valor real (no versionado, repo es público) vive en `CLAUDE.local.md`. Sin esa variable definida, `dbt run` aplica el grant al placeholder en vez de a la cuenta real.
+- El `grants` de los marts (hoy `mart_macro_global.yml`) usa `env_var('SARA_MARTS_READER_PRINCIPAL', ...)` con un placeholder por defecto — el valor real (no versionado, repo es público) vive en `CLAUDE.local.md`. Sin esa variable definida, el grant al placeholder **falla** ("Service account … does not exist"): BigQuery crea la tabla (dbt aplica el grant después) pero el modelo queda en ERROR y `dbt build` salta sus tests. En `--target refactor` se acepta ese error a propósito (no se da acceso a Sara a tablas sin validar) y los tests se corren aparte con `dbt test --target refactor`.

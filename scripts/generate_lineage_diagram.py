@@ -19,7 +19,7 @@ README_PATH = PROJECT_ROOT / "README.md"
 
 # Subgraph display order; any layer not listed here (e.g. a future
 # models/marts/ subfolder) is appended after these, alphabetically.
-LAYER_ORDER = ["source", "staging", "marts"]
+LAYER_ORDER = ["source", "staging", "intermediate", "marts"]
 
 # --- Nodos fijos, NO generados desde el manifest ---
 # Representan el destino físico del dataset y el consumidor externo (fuera del DAG de dbt).
@@ -70,6 +70,15 @@ def build_graph(manifest: dict) -> tuple[dict, list]:
         for upstream_id in node.get("depends_on", {}).get("nodes", []):
             if upstream_id in nodes:
                 edges.append((upstream_id, node_id))
+
+    # Sources que ningún modelo usa (p. ej. raw_market_metrics_weekly/_monthly,
+    # declarados solo para source freshness) no aportan al lineage: fuera.
+    used_upstream = {upstream_id for upstream_id, _ in edges}
+    nodes = {
+        node_id: info
+        for node_id, info in nodes.items()
+        if info["layer"] != "source" or node_id in used_upstream
+    }
 
     return nodes, edges
 

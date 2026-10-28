@@ -1,0 +1,160 @@
+version: 2
+
+models:
+  - name: mart_macro_global
+    description: >
+      Capa macro global: una fila por día natural con la señal de cada uno de
+      los 10 indicadores macro (signal_<indicador>) y la fecha de la
+      observación usada (<indicador>_as_of). Cada día toma la última
+      observación del indicador si no supera su caducidad (error_after del
+      bloque de freshness de su cadencia en _sources.yml); si la supera, ambas
+      columnas quedan en NULL. Calendario: del primer día con alguna señal a la
+      última fecha con observaciones. layer_signal pendiente de definir.
+    config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        # El principal real vive en la variable de entorno
+        # SARA_MARTS_READER_PRINCIPAL (no versionada) para no exponer el
+        # nombre real de la cuenta de servicio en un repo público. El valor
+        # por defecto es solo un placeholder ilustrativo.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
+      meta:
+        layer: macro
+    columns:
+      - name: signal_date
+        data_type: DATE
+        tests:
+          - unique
+          - not_null
+      - name: signal_yield_curve
+        data_type: STRING
+        description: >
+          Señal de int_yield_curve vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_fed_balance_sheet
+        data_type: STRING
+        description: >
+          Señal de int_fed_balance_sheet vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_dxy
+        data_type: STRING
+        description: >
+          Señal de int_dxy vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_vix
+        data_type: STRING
+        description: >
+          Señal de int_vix vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_spx
+        data_type: STRING
+        description: >
+          Señal de int_spx vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_nasdaq_tech_risk
+        data_type: STRING
+        description: >
+          Señal de int_nasdaq_tech_risk vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_move
+        data_type: STRING
+        description: >
+          Señal de int_move vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_eurozone_m3
+        data_type: STRING
+        description: >
+          Señal de int_eurozone_m3 vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_usa_m2
+        data_type: STRING
+        description: >
+          Señal de int_usa_m2 vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_china_m2
+        data_type: STRING
+        description: >
+          Señal de int_china_m2 vigente ese día (arrastre as-of con caducidad).
+          NULL si no hay observación dentro de la caducidad, o si la última
+          observación tiene signal NULL (ventana del indicador incompleta).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: yield_curve_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_yield_curve usada para signal_yield_curve. NULL si caducada o sin observación previa."
+      - name: fed_balance_sheet_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_fed_balance_sheet usada para signal_fed_balance_sheet. NULL si caducada o sin observación previa."
+      - name: dxy_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_dxy usada para signal_dxy. NULL si caducada o sin observación previa."
+      - name: vix_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_vix usada para signal_vix. NULL si caducada o sin observación previa."
+      - name: spx_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_spx usada para signal_spx. NULL si caducada o sin observación previa."
+      - name: nasdaq_tech_risk_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_nasdaq_tech_risk usada para signal_nasdaq_tech_risk. NULL si caducada o sin observación previa."
+      - name: move_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_move usada para signal_move. NULL si caducada o sin observación previa."
+      - name: eurozone_m3_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_eurozone_m3 usada para signal_eurozone_m3. NULL si caducada o sin observación previa."
+      - name: usa_m2_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_usa_m2 usada para signal_usa_m2. NULL si caducada o sin observación previa."
+      - name: china_m2_as_of
+        data_type: DATE
+        description: "Fecha de la observación de int_china_m2 usada para signal_china_m2. NULL si caducada o sin observación previa."

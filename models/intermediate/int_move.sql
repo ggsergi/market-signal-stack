@@ -1,8 +1,6 @@
-{{ config(materialized='table') }}
-
 WITH move AS (
     -- value es un nivel de índice (^MOVE), no una cifra monetaria: sin
-    -- conversión de unidades, a diferencia de mart_fed_balance_sheet.
+    -- conversión de unidades, a diferencia de int_fed_balance_sheet.
     SELECT
         event_time,
         value

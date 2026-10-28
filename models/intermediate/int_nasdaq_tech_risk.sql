@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH ndx AS (
     SELECT
         event_time,
@@ -31,7 +29,7 @@ calculated AS (
         -- Variación diaria como fracción (0.01 = +1%), misma escala que
         -- distance_to_ma200. NULL en la primera fila (sin cierre anterior).
         (close / previous_close) - 1 AS daily_change_pct,
-        -- Igual que mart_spx: distance solo se calcula con la ventana de 200
+        -- Igual que int_spx: distance solo se calcula con la ventana de 200
         -- días completa; con menos observaciones ma200 sería una media
         -- parcial, así que distance queda NULL hasta que haya histórico.
         CASE
@@ -46,7 +44,7 @@ SELECT
     close,
     daily_change_pct,
     distance_to_ma200,
-    -- Igual que mart_spx: distance alto (NDX por encima de su MA200) es
+    -- Igual que int_spx: distance alto (NDX por encima de su MA200) es
     -- BULLISH, cadena descendente (">="), primer-match-gana con límite
     -- inferior inclusivo. Valores literales de
     -- docs/indicator_rules/nasdaq_tech_risk_regime.yaml.

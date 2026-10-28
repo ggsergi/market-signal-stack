@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH dgs10 AS (
     SELECT
         event_time,

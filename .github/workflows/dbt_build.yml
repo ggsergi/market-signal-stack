@@ -68,7 +68,7 @@ jobs:
         run: uv run dbt build
         env:
           # Real value (not committed to the repo) lives in a GitHub secret.
-          # Without it, the mart_yield_curve grant reconciles against the
+          # Without it, the marts' grants reconcile against the
           # placeholder default instead of the real read-only service account.
           SARA_MARTS_READER_PRINCIPAL: ${{ secrets.SARA_MARTS_READER_PRINCIPAL }}
 

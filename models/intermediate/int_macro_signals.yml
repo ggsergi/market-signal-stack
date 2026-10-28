@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: int_macro_signals
+    description: >
+      Señales de los 10 indicadores de la capa macro en formato largo: una fila
+      por (indicador, fecha de observación), unidas con UNION ALL desde los
+      int_<indicador>. Mismas filas y señales que cada int_<indicador>; no
+      calcula nada nuevo. Base de mart_macro_global.
+    config:
+      meta:
+        layer: macro
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['indicator', 'event_date']
+    columns:
+      - name: indicator
+        description: "Nombre del indicador, igual al sufijo de su int_<indicador>."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['yield_curve', 'fed_balance_sheet', 'dxy', 'vix', 'spx', 'nasdaq_tech_risk', 'move', 'eurozone_m3', 'usa_m2', 'china_m2']
+      - name: event_date
+        description: "Fecha de la observación (DATE(event_time) del int_<indicador>)."
+        tests:
+          - not_null
+      - name: signal
+        description: >
+          Señal del indicador en esa fecha. NULL cuando el indicador aún no
+          tiene ventana completa (ver cada int_<indicador>).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: normalized_value
+        description: "normalized_value del indicador en esa fecha (NULL igual que signal)."
+      - name: max_age_days
+        description: >
+          Caducidad del arrastre as-of en mart_macro_global, en días: el
+          error_after del bloque de freshness de la cadencia del indicador en
+          _sources.yml (diario, semanal o mensual).
+        tests:
+          - not_null

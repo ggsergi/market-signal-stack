@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 WITH vix AS (
     SELECT
         event_time,
