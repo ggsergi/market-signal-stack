@@ -25,7 +25,10 @@ flowchart LR
         stg_market_metrics["stg_market_metrics"]
     end
     subgraph intermediate["intermediate"]
+        int_btc_etf_net_flow["int_btc_etf_net_flow"]
+        int_btc_exchange_net_flow["int_btc_exchange_net_flow"]
         int_china_m2["int_china_m2"]
+        int_crypto_liquidity_signals["int_crypto_liquidity_signals"]
         int_dxy["int_dxy"]
         int_eurozone_m3["int_eurozone_m3"]
         int_fed_balance_sheet["int_fed_balance_sheet"]
@@ -38,9 +41,13 @@ flowchart LR
         int_yield_curve["int_yield_curve"]
     end
     subgraph marts["marts"]
+        mart_crypto_liquidity["mart_crypto_liquidity"]
         mart_macro_global["mart_macro_global"]
     end
+    int_btc_etf_net_flow --> int_crypto_liquidity_signals
+    int_btc_exchange_net_flow --> int_crypto_liquidity_signals
     int_china_m2 --> int_macro_signals
+    int_crypto_liquidity_signals --> mart_crypto_liquidity
     int_dxy --> int_macro_signals
     int_eurozone_m3 --> int_macro_signals
     int_fed_balance_sheet --> int_macro_signals
@@ -52,6 +59,8 @@ flowchart LR
     int_vix --> int_macro_signals
     int_yield_curve --> int_macro_signals
     raw_market_metrics --> stg_market_metrics
+    stg_market_metrics --> int_btc_etf_net_flow
+    stg_market_metrics --> int_btc_exchange_net_flow
     stg_market_metrics --> int_china_m2
     stg_market_metrics --> int_dxy
     stg_market_metrics --> int_eurozone_m3
@@ -73,7 +82,9 @@ flowchart LR
 
 ## Current status
 
-One layer built — **Macro Global** — exposed to the agent as `mart_macro_global`, on top of ten indicators:
+Two layers built, each exposed to the agent as one mart: **Macro Global** (`mart_macro_global`, ten indicators) and **Crypto Liquidity** (`mart_crypto_liquidity`, two indicators).
+
+### Macro Global
 
 - **Yield Curve (10Y-2Y)** (`int_yield_curve`): spread between the 10-year and 2-year US Treasury yields, a recession-risk and risk-appetite signal. Computes the daily spread, a categorical signal (`BULLISH` / `NEUTRAL` / `BEARISH`) with a normalized value, and applies forward-fill when one of the two series is missing for a given day — each row explicitly flags whether its value is real or carried forward (`is_dgs2_imputed`, `is_dgs10_imputed`).
 - **FED Balance Sheet (QE/QT)** (`int_fed_balance_sheet`): weekly change in the Federal Reserve's balance sheet (WALCL), a liquidity expansion/contraction signal. Computes the week-over-week delta and the same normalized categorical signal.
@@ -94,9 +105,23 @@ Each indicator follows the same pattern: generic staging, an `int_<indicator>` w
 - **Look-ahead caveat.** Monthly indicators are dated by the month they describe, not by when they're published (euro area M3 for August comes out at the end of September), so a row can carry a figure that wasn't public yet on that day. It doesn't matter for the agent's daily reading; it does for a backtest.
 - **No combined layer signal yet.** How the ten signals combine into one `layer_signal` is still to be defined, so the mart exposes the individual signals only.
 
+### Crypto Liquidity
+
+- **BTC Spot ETF Net Flow** (`int_btc_etf_net_flow`): daily net flow into all US spot bitcoin ETFs (Farside total, US$ millions), a proxy for institutional demand. `BULLISH` from +$200M a day, `BEARISH` below −$100M, and on days in between, a streak of 5 sessions in a row of inflows (or outflows) gives a weaker `BULLISH` (or `BEARISH`). One row per US trading session: the holidays Farside publishes as 0 are dropped, since they mean "market closed", not "flat flows". The per-ETF breakdown (IBIT, FBTC, GBTC…) is kept in the raw payload but not used yet.
+- **BTC Exchange Net Flow** (`int_btc_exchange_net_flow`): BTC leaving exchanges minus BTC arriving (Coin Metrics, in BTC). Positive means coins are being withdrawn — accumulation, `BULLISH`; negative means coins are being deposited to sell — `BEARISH`. Fixed thresholds at ±2,000 and ±5,000 BTC, and three days in a row beyond ±2,000 strengthen the signal. If either series is missing for a day, the signal is `NULL` rather than filled in.
+
+Each indicator follows the same pattern as in Macro Global, and `int_crypto_liquidity_signals` stacks the two by date.
+
+**`mart_crypto_liquidity`** has the same shape as `mart_macro_global`: one row per calendar day from 2011-04-24 (the first exchange-flow day), `signal_<indicator>` and `<indicator>_as_of`, and the same carry-forward with expiry (3 days, since both are daily). ETF flows only exist on US trading days, so weekends and holidays carry the last session's signal; before the first ETF session (2024-01-11) that column is `NULL`. There's no `layer_signal` yet either.
+
+Two limits worth knowing:
+
+- **Exchange flows aren't comparable before ~2020.** How much volume Coin Metrics attributes to exchanges depends on which exchanges it tracks, and that has changed a lot (average daily inflow ~1.7k BTC in 2011, ~66k in 2015–2017, ~21k in 2026). With fixed thresholds, older years land in the extreme bands far more often.
+- **Recent exchange flows get revised.** Coin Metrics publishes them as preliminary and corrects them for about 30 days, so the signal for the last month can change between runs.
+
 ## Indicators in progress
 
-All ten indicators have a signal today, but over very different spans of history:
+All twelve indicators have a signal today, but over very different spans of history:
 
 | Indicator | History loaded | Signal from |
 |---|---|---|
@@ -104,7 +129,9 @@ All ten indicators have a signal today, but over very different spans of history
 | Eurozone M3 | 1980-01 | 1995-12 |
 | China M2 | 2008-01 | 2018-12 |
 | VIX | 2010-01 | 2013-01 |
+| BTC Exchange Net Flow | 2011-04 | 2011-04 |
 | MOVE | 2020-01 | 2024-02 |
+| BTC Spot ETF Net Flow | 2024-01 | 2024-01 |
 | Yield Curve | 2025-09 | 2025-09 |
 | FED Balance Sheet | 2025-10 | 2025-10 |
 | DXY | 2025-09 | 2025-12 |
@@ -117,7 +144,7 @@ The five indicators at the bottom of the table only have about a year of history
 
 ## Roadmap
 
-Macro Global is the first of several signal layers meant to feed BTC market-cycle evaluation, each with the same shape: `int_<indicator>` models, an `int_<layer>_signals`, and one `mart_<layer>` for the agent. Next are **Crypto Liquidity** (`mart_crypto_liquidity`, starting with daily BTC spot ETF flows) and **On-chain BTC** (`mart_onchain_btc`). Once at least two layers are ready, a final `mart_btc_cycle_signal` will combine them.
+Macro Global and Crypto Liquidity are the first of several signal layers meant to feed BTC market-cycle evaluation, each with the same shape: `int_<indicator>` models, an `int_<layer>_signals`, and one `mart_<layer>` for the agent. Next is **On-chain BTC** (`mart_onchain_btc`). With two layers in place, a final `mart_btc_cycle_signal` will combine them once each layer's `layer_signal` is defined. For Crypto Liquidity, the per-ETF rules (IBIT/FBTC leading inflows, GBTC outflows) are a planned improvement.
 
 ## Running it
 
