@@ -78,7 +78,7 @@ flowchart LR
 - **`raw_market_signals`**: the BigQuery dataset where raw data is loaded. dbt doesn't build it, it only reads it as a `source`.
 - **`models/staging/`**: minimal cleanup (type casting, column selection) on top of the raw data. No business logic. Materialized as `ephemeral` — it never lands as its own table, it's inlined into the models that use it.
 - **`models/intermediate/`**: where the business logic lives, as views. One `int_<indicator>` per indicator holds its formula and its signal (`BULLISH` / `NEUTRAL` / `BEARISH`) following the rules in `docs/indicator_rules/`, and one `int_<layer>_signals` per layer stacks that layer's indicators by date. These are internal building blocks: the agent doesn't read them.
-- **`models/marts/`**: one mart per signal layer, materialized as a table in `market_signal_marts` — the dataset consumed by the agent through a read-only service account. Each layer mart has one row per day and one `signal_<indicator>` column per indicator, with an enforced data contract. There is no mart per indicator.
+- **`models/marts/`**: one mart per signal layer, materialized as a table in `market_signal_marts` — the dataset consumed by the agent through a read-only service account. Each layer mart has one row per day, one `signal_<indicator>` column per indicator and a combined `layer_signal`, with an enforced data contract. There is no mart per indicator.
 
 ## Current status
 
@@ -103,7 +103,7 @@ Each indicator follows the same pattern: generic staging, an `int_<indicator>` w
 
 - **Carry-forward with expiry.** Each day takes the indicator's latest observation, so weekly and monthly indicators — and daily ones over weekends and holidays — still have a value. `<indicator>_as_of` is the date of the observation used, so carried values are always visible. An observation older than its cadence's source-freshness `error_after` (3 days daily, 14 weekly, 60 monthly — read from `_sources.yml`) expires and both columns go `NULL`.
 - **Look-ahead caveat.** Monthly indicators are dated by the month they describe, not by when they're published (euro area M3 for August comes out at the end of September), so a row can carry a figure that wasn't public yet on that day. It doesn't matter for the agent's daily reading; it does for a backtest.
-- **No combined layer signal yet.** How the ten signals combine into one `layer_signal` is still to be defined, so the mart exposes the individual signals only.
+- **Combined layer signal.** `layer_signal` weighs the ten into one reading — see [Layer signal](#layer-signal). It's `NULL` before 2025-10-08, while five indicators are still waiting for their backfill.
 
 ### Crypto Liquidity
 
@@ -112,12 +112,27 @@ Each indicator follows the same pattern: generic staging, an `int_<indicator>` w
 
 Each indicator follows the same pattern as in Macro Global, and `int_crypto_liquidity_signals` stacks the two by date.
 
-**`mart_crypto_liquidity`** has the same shape as `mart_macro_global`: one row per calendar day from 2011-04-24 (the first exchange-flow day), `signal_<indicator>` and `<indicator>_as_of`, and the same carry-forward with expiry (3 days, since both are daily). ETF flows only exist on US trading days, so weekends and holidays carry the last session's signal; before the first ETF session (2024-01-11) that column is `NULL`. There's no `layer_signal` yet either.
+**`mart_crypto_liquidity`** has the same shape as `mart_macro_global`: one row per calendar day from 2011-04-24 (the first exchange-flow day), `signal_<indicator>` and `<indicator>_as_of`, and the same carry-forward with expiry (3 days, since both are daily). ETF flows only exist on US trading days, so weekends and holidays carry the last session's signal; before the first ETF session (2024-01-11) that column is `NULL`. Its `layer_signal` follows the same rule as Macro Global's and needs both indicators, so it starts on 2024-01-11.
 
 Two limits worth knowing:
 
 - **Exchange flows aren't comparable before ~2020.** How much volume Coin Metrics attributes to exchanges depends on which exchanges it tracks, and that has changed a lot (average daily inflow ~1.7k BTC in 2011, ~66k in 2015–2017, ~21k in 2026). With fixed thresholds, older years land in the extreme bands far more often.
 - **Recent exchange flows get revised.** Coin Metrics publishes them as preliminary and corrects them for about 30 days, so the signal for the last month can change between runs.
+
+### Layer signal
+
+Each layer mart also combines its indicators into a single reading for the day, with the same rule in every layer (`docs/layer_rules/`):
+
+- **`layer_score`**: the weighted average of the `normalized_value` (−1 to +1) of the indicators that have a signal that day, carried-forward ones included. Each indicator's weight comes from its rule in `docs/indicator_rules/` — for example 1.3 for the yield curve or the FED balance sheet, 0.9 for VIX. Indicators without a signal that day count neither in the sum nor in the weights.
+- **`layer_coverage`**: the share of the layer's total weight that has a signal that day, from 0 to 1.
+- **`layer_signal`**: `BULLISH` when `layer_score` is 0.3 or more, `BEARISH` below −0.3, and `NEUTRAL` in between.
+
+A reading built on a few indicators would look as confident as one built on all of them, so **below 70% coverage there's no layer signal**: `layer_score` and `layer_signal` are `NULL`, while `layer_coverage` is still published so you can see how far off it is. The calculation uses exact decimal arithmetic, because the cutoffs land exactly on real values — Macro Global's first signal day has coverage of exactly 70%.
+
+What that means today:
+
+- **Macro Global has no layer signal before 2025-10-08.** The five indicators whose backfill is still pending (yield curve, FED balance sheet, DXY, S&P 500 and NASDAQ 100) carry more than half of the layer's weight, so before they have data the coverage can't reach 70%. Loading those backfills would extend the layer signal back years, with no code changes.
+- **Crypto Liquidity needs both of its indicators** — neither reaches 70% of the weight alone — so it has no layer signal before the first ETF session (2024-01-11), or on any day one of the two is missing or expired.
 
 ## Indicators in progress
 
@@ -144,7 +159,7 @@ The five indicators at the bottom of the table only have about a year of history
 
 ## Roadmap
 
-Macro Global and Crypto Liquidity are the first of several signal layers meant to feed BTC market-cycle evaluation, each with the same shape: `int_<indicator>` models, an `int_<layer>_signals`, and one `mart_<layer>` for the agent. Next is **On-chain BTC** (`mart_onchain_btc`). With two layers in place, a final `mart_btc_cycle_signal` will combine them once each layer's `layer_signal` is defined. For Crypto Liquidity, the per-ETF rules (IBIT/FBTC leading inflows, GBTC outflows) are a planned improvement.
+Macro Global and Crypto Liquidity are the first of several signal layers meant to feed BTC market-cycle evaluation, each with the same shape: `int_<indicator>` models, an `int_<layer>_signals`, and one `mart_<layer>` for the agent. Next is **On-chain BTC** (`mart_onchain_btc`). With two layers and their `layer_signal` in place, a final `mart_btc_cycle_signal` will combine them. For Crypto Liquidity, the per-ETF rules (IBIT/FBTC leading inflows, GBTC outflows) are a planned improvement.
 
 ## Running it
 
