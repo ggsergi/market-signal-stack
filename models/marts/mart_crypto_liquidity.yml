@@ -9,7 +9,9 @@ models:
       indicador si no supera su caducidad (error_after del bloque de freshness
       diario en _sources.yml, 3 días); si la supera, ambas columnas quedan en
       NULL. Calendario: del primer día con alguna señal a la última fecha con
-      observaciones. layer_signal pendiente de definir.
+      observaciones.
+      layer_score, layer_coverage y layer_signal combinan las señales del día
+      con los pesos de cada indicador (docs/layer_rules/crypto_liquidity.yaml).
     config:
       access: public
       contract:
@@ -22,6 +24,11 @@ models:
         roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
       meta:
         layer: crypto_liquidity
+    tests:
+      # layer_signal falta si y solo si la cobertura no llega al mínimo.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(layer_signal IS NULL) = (layer_coverage < 0.70)"
     columns:
       - name: signal_date
         data_type: DATE
@@ -52,3 +59,35 @@ models:
       - name: btc_exchange_net_flow_as_of
         data_type: DATE
         description: "Fecha de la observación de int_btc_exchange_net_flow usada para signal_btc_exchange_net_flow. NULL si caducada o sin observación previa."
+      - name: layer_score
+        data_type: NUMERIC
+        description: >
+          SUM(normalized_value * weight) / SUM(weight) sobre los indicadores con
+          señal ese día (incluidas las arrastradas y no caducadas). NULL si
+          layer_coverage < 0.70. Reglas en docs/layer_rules/crypto_liquidity.yaml.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -1
+                max_value: 1
+      - name: layer_coverage
+        data_type: NUMERIC
+        description: >
+          SUM(weight de los indicadores con señal ese día) / SUM(weight de
+          todos los indicadores de la capa), entre 0 y 1. Siempre se publica,
+          también cuando no llega al 0.70 mínimo. Con dos indicadores ninguno llega solo al 0.70 (ETF 1.3 / 2.4, exchange 1.1 / 2.4): hacen falta los dos, así que antes de 2024-01-11 layer_signal es NULL.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: layer_signal
+        data_type: STRING
+        description: >
+          BULLISH si layer_score >= 0.3; NEUTRAL si -0.3 <= layer_score < 0.3;
+          BEARISH si layer_score < -0.3. NULL si layer_coverage < 0.70.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']

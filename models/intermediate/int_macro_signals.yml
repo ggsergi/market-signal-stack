@@ -43,3 +43,10 @@ models:
           _sources.yml (diario, semanal o mensual).
         tests:
           - not_null
+      - name: weight
+        description: >
+          Peso del indicador en el layer_score del mart de capa: el meta.weight
+          de su int_<indicador>.yml, copia exacta del weight de su regla en
+          docs/indicator_rules/. NUMERIC (decimal exacto).
+        tests:
+          - not_null

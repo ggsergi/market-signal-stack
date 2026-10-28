@@ -2,6 +2,9 @@ version: 2
 
 models:
   - name: int_vix
+    config:
+      meta:
+        weight: 0.9
     columns:
       - name: event_time
         data_type: TIMESTAMP

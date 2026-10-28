@@ -3,7 +3,7 @@ indicator_rules:
     description: "Daily net flow into US spot bitcoin ETFs as a proxy for institutional demand for BTC"
     layer: crypto_liquidity
     relevance_level: null  # pendiente: no viene en la regla original
-    weight: null           # pendiente: no viene en la regla original
+    weight: 1.3            # decidido aparte (no viene en la regla original)
     calculation:
       formula: "net_flow = total diario neto de todos los ETF spot de BTC de EE. UU. (columna Total de Farside), en millones de USD"
       frequency: "daily (US trading days)"

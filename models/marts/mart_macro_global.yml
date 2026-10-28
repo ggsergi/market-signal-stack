@@ -9,7 +9,9 @@ models:
       observación del indicador si no supera su caducidad (error_after del
       bloque de freshness de su cadencia en _sources.yml); si la supera, ambas
       columnas quedan en NULL. Calendario: del primer día con alguna señal a la
-      última fecha con observaciones. layer_signal pendiente de definir.
+      última fecha con observaciones.
+      layer_score, layer_coverage y layer_signal combinan las señales del día
+      con los pesos de cada indicador (docs/layer_rules/macro_global.yaml).
     config:
       access: public
       contract:
@@ -22,6 +24,11 @@ models:
         roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
       meta:
         layer: macro
+    tests:
+      # layer_signal falta si y solo si la cobertura no llega al mínimo.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(layer_signal IS NULL) = (layer_coverage < 0.70)"
     columns:
       - name: signal_date
         data_type: DATE
@@ -158,3 +165,52 @@ models:
       - name: china_m2_as_of
         data_type: DATE
         description: "Fecha de la observación de int_china_m2 usada para signal_china_m2. NULL si caducada o sin observación previa."
+      - name: layer_score
+        data_type: NUMERIC
+        description: >
+          SUM(normalized_value * weight) / SUM(weight) sobre los indicadores con
+          señal ese día (incluidas las arrastradas y no caducadas). NULL si
+          layer_coverage < 0.70. Reglas en docs/layer_rules/macro_global.yaml.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -1
+                max_value: 1
+      - name: layer_coverage
+        data_type: NUMERIC
+        description: >
+          SUM(weight de los indicadores con señal ese día) / SUM(weight de
+          todos los indicadores de la capa), entre 0 y 1. Siempre se publica,
+          también cuando no llega al 0.70 mínimo. Con los backfills pendientes de cinco indicadores, la capa no llega al 0.70 hasta 2025-10-08.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: layer_signal
+        data_type: STRING
+        description: >
+          BULLISH si layer_score >= 0.3; NEUTRAL si -0.3 <= layer_score < 0.3;
+          BEARISH si layer_score < -0.3. NULL si layer_coverage < 0.70.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+
+unit_tests:
+  # Caso de prueba a mano (worked_example en docs/layer_rules/macro_global.yaml):
+  # señales +1.0, +0.6, -1.0 con pesos 1.3, 1.1, 0.9 -> 1.06 / 3.3 = 0.3212...
+  # -> BULLISH. Solo esos tres indicadores en la entrada, así que la cobertura
+  # es 3.3 / 3.3 = 1.
+  - name: layer_score_worked_example
+    model: mart_macro_global
+    given:
+      - input: ref('int_macro_signals')
+        rows:
+          - {indicator: yield_curve, event_date: 2026-01-01, signal: BULLISH, normalized_value: 1.0, max_age_days: 3, weight: 1.3}
+          - {indicator: dxy, event_date: 2026-01-01, signal: BULLISH, normalized_value: 0.6, max_age_days: 3, weight: 1.1}
+          - {indicator: vix, event_date: 2026-01-01, signal: BEARISH, normalized_value: -1.0, max_age_days: 3, weight: 0.9}
+    expect:
+      rows:
+        - {signal_date: 2026-01-01, signal_yield_curve: BULLISH, signal_dxy: BULLISH, signal_vix: BEARISH, layer_score: 0.321212121, layer_coverage: 1, layer_signal: BULLISH}

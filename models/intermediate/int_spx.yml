@@ -2,6 +2,9 @@ version: 2
 
 models:
   - name: int_spx
+    config:
+      meta:
+        weight: 1.1
     columns:
       - name: event_time
         data_type: TIMESTAMP

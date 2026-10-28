@@ -2,6 +2,9 @@ version: 2
 
 models:
   - name: int_yield_curve
+    config:
+      meta:
+        weight: 1.3
     columns:
       - name: event_time
         data_type: TIMESTAMP

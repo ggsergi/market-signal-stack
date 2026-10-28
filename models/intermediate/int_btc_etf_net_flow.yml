@@ -15,7 +15,7 @@ models:
         indicator_id: btc_etf_net_flow
         layer: crypto_liquidity
         relevance_level: null
-        weight: null
+        weight: 1.3
     tests:
       - dbt_utils.expression_is_true:
           arguments:

@@ -5,6 +5,9 @@
 -- max_age_days: caducidad del arrastre as-of de cada indicador, igual al
 -- error_after del bloque de freshness de su cadencia en _sources.yml (diario,
 -- semanal o mensual). Se lee de ahí, no se copia.
+--
+-- weight: peso del indicador en el layer_score, el meta.weight de su
+-- int_<indicador>.yml (copia exacta del weight de docs/indicator_rules/).
 
 {%- set indicators = [
     {'name': 'btc_etf_net_flow',      'freshness_block': 'raw_market_metrics'},
@@ -17,7 +20,8 @@ SELECT
     DATE(event_time) AS event_date,
     signal,
     normalized_value,
-    {{ freshness_error_after_days(indicator.freshness_block) }} AS max_age_days
+    {{ freshness_error_after_days(indicator.freshness_block) }} AS max_age_days,
+    CAST('{{ indicator_weight('int_' ~ indicator.name) }}' AS NUMERIC) AS weight
 FROM {{ ref('int_' ~ indicator.name) }}
 {% if not loop.last %}UNION ALL{% endif %}
 {% endfor %}
