@@ -45,18 +45,24 @@ def load_manifest() -> dict:
 
 
 def build_graph(manifest: dict) -> tuple[dict, list]:
-    """Return (nodes, edges) from the manifest, excluding test nodes.
+    """Return (nodes, edges) from the manifest: this project's sources and
+    models only (no tests, no hooks, no installed packages such as Elementary).
 
     nodes: node_id -> {"label": str, "layer": str}
     edges: list of (upstream_node_id, downstream_node_id)
     """
+    project = manifest["metadata"]["project_name"]
     nodes: dict = {}
 
     for source_id, source in manifest["sources"].items():
+        if source["package_name"] != project:
+            continue
         nodes[source_id] = {"label": source["name"], "layer": "source"}
 
     for node_id, node in manifest["nodes"].items():
-        if node["resource_type"] == "test":
+        if node["resource_type"] not in ("model", "seed", "snapshot"):
+            continue
+        if node["package_name"] != project:
             continue
         # fqn = [project_name, folder, ..., node_name] -> folder is the layer
         # (e.g. "staging", "marts"), matching the models/ directory structure.

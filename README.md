@@ -24,65 +24,100 @@ flowchart LR
     subgraph staging["staging"]
         stg_market_metrics["stg_market_metrics"]
     end
-    subgraph marts["marts"]
-        mart_china_m2["mart_china_m2"]
-        mart_dxy["mart_dxy"]
-        mart_eurozone_m3["mart_eurozone_m3"]
-        mart_fed_balance_sheet["mart_fed_balance_sheet"]
-        mart_move["mart_move"]
-        mart_nasdaq_tech_risk["mart_nasdaq_tech_risk"]
-        mart_spx["mart_spx"]
-        mart_usa_m2["mart_usa_m2"]
-        mart_vix["mart_vix"]
-        mart_yield_curve["mart_yield_curve"]
+    subgraph intermediate["intermediate"]
+        int_china_m2["int_china_m2"]
+        int_dxy["int_dxy"]
+        int_eurozone_m3["int_eurozone_m3"]
+        int_fed_balance_sheet["int_fed_balance_sheet"]
+        int_macro_signals["int_macro_signals"]
+        int_move["int_move"]
+        int_nasdaq_tech_risk["int_nasdaq_tech_risk"]
+        int_spx["int_spx"]
+        int_usa_m2["int_usa_m2"]
+        int_vix["int_vix"]
+        int_yield_curve["int_yield_curve"]
     end
+    subgraph marts["marts"]
+        mart_macro_global["mart_macro_global"]
+    end
+    int_china_m2 --> int_macro_signals
+    int_dxy --> int_macro_signals
+    int_eurozone_m3 --> int_macro_signals
+    int_fed_balance_sheet --> int_macro_signals
+    int_macro_signals --> mart_macro_global
+    int_move --> int_macro_signals
+    int_nasdaq_tech_risk --> int_macro_signals
+    int_spx --> int_macro_signals
+    int_usa_m2 --> int_macro_signals
+    int_vix --> int_macro_signals
+    int_yield_curve --> int_macro_signals
     raw_market_metrics --> stg_market_metrics
-    stg_market_metrics --> mart_china_m2
-    stg_market_metrics --> mart_dxy
-    stg_market_metrics --> mart_eurozone_m3
-    stg_market_metrics --> mart_fed_balance_sheet
-    stg_market_metrics --> mart_move
-    stg_market_metrics --> mart_nasdaq_tech_risk
-    stg_market_metrics --> mart_spx
-    stg_market_metrics --> mart_usa_m2
-    stg_market_metrics --> mart_vix
-    stg_market_metrics --> mart_yield_curve
+    stg_market_metrics --> int_china_m2
+    stg_market_metrics --> int_dxy
+    stg_market_metrics --> int_eurozone_m3
+    stg_market_metrics --> int_fed_balance_sheet
+    stg_market_metrics --> int_move
+    stg_market_metrics --> int_nasdaq_tech_risk
+    stg_market_metrics --> int_spx
+    stg_market_metrics --> int_usa_m2
+    stg_market_metrics --> int_vix
+    stg_market_metrics --> int_yield_curve
     marts --> market_signal_marts[("market_signal_marts<br/>(BigQuery)")]
     market_signal_marts --> agent["AI agent<br/>(consumer)"]
 ```
 
 - **`raw_market_signals`**: the BigQuery dataset where raw data is loaded. dbt doesn't build it, it only reads it as a `source`.
 - **`models/staging/`**: minimal cleanup (type casting, column selection) on top of the raw data. No business logic. Materialized as `ephemeral` — it never lands as its own table, it's inlined into the models that use it.
-- **`models/marts/`**: where each indicator's calculation lives — the real business logic. Materialized as a table in `market_signal_marts`, the dataset consumed by the agent through a read-only service account.
+- **`models/intermediate/`**: where the business logic lives, as views. One `int_<indicator>` per indicator holds its formula and its signal (`BULLISH` / `NEUTRAL` / `BEARISH`) following the rules in `docs/indicator_rules/`, and one `int_<layer>_signals` per layer stacks that layer's indicators by date. These are internal building blocks: the agent doesn't read them.
+- **`models/marts/`**: one mart per signal layer, materialized as a table in `market_signal_marts` — the dataset consumed by the agent through a read-only service account. Each layer mart has one row per day and one `signal_<indicator>` column per indicator, with an enforced data contract. There is no mart per indicator.
 
 ## Current status
 
-Ten indicators built, all in the Macro Global layer:
+One layer built — **Macro Global** — exposed to the agent as `mart_macro_global`, on top of ten indicators:
 
-- **Yield Curve (10Y-2Y)** (`mart_yield_curve`): spread between the 10-year and 2-year US Treasury yields, a recession-risk and risk-appetite signal. Computes the daily spread, a categorical signal (`BULLISH` / `NEUTRAL` / `BEARISH`) with a normalized value, and applies forward-fill when one of the two series is missing for a given day — each row explicitly flags whether its value is real or carried forward (`is_dgs2_imputed`, `is_dgs10_imputed`).
-- **FED Balance Sheet (QE/QT)** (`mart_fed_balance_sheet`): weekly change in the Federal Reserve's balance sheet (WALCL), a liquidity expansion/contraction signal. Computes the week-over-week delta and the same normalized categorical signal.
-- **DXY (US Dollar Index)** (`mart_dxy`): distance of the US Dollar Index from its 50-day moving average, a global liquidity pressure signal. The signal is left `NULL` until 50 days of real history accumulate (it never computes a partial average as if it were complete) — this resolves itself as more data comes in.
-- **VIX (Volatility Index)** (`mart_vix`): z-score (capped at ±3) of the VIX's 20-day moving average against its 750-day history, a risk-aversion signal. Same as DXY, the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
-- **S&P 500 Risk Regime** (`mart_spx`): distance of the S&P 500 from its 200-day moving average, a structural risk-appetite signal. Same as DXY, the signal is left `NULL` until 200 days of real history accumulate.
-- **NASDAQ 100 Tech Risk Regime** (`mart_nasdaq_tech_risk`): distance of the NASDAQ 100 (^NDX) from its 200-day moving average, a technology-led risk-appetite signal. Same pattern as SPX, and it also exposes the daily change plus the `btc_bias` and `message` for each threshold from its rules file. The signal is left `NULL` until 200 days of real history accumulate.
-- **Eurozone M3 Money Supply** (`mart_eurozone_m3`): year-over-year growth of euro area M3 (ECB, monthly), ranked as a percentile against its own last 180 months (~15 years), a regional liquidity signal. M3 is used as a proxy for M2, which isn't ingested yet — since the signal is a percentile of the series against its own history, the thresholds work the same on M3's distribution. With history back to 1980, it's the first indicator with a signal over a long track record (from 1995-12 onward).
-- **US M2 Money Supply** (`mart_usa_m2`): year-over-year growth of US M2 (FRED `M2SL`, monthly), ranked as a percentile against its own last 240 months (~20 years), a domestic and global liquidity signal. Same pattern as Eurozone M3, but only 12 months of history are loaded so far, so the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
-- **China M2 Money Supply** (`mart_china_m2`): year-over-year growth of China's M2 (scraped from TradingEconomics, monthly), ranked as a percentile against its own last 120 months (~10 years), a global liquidity expansion/contraction signal. Same pattern as the other money supply indicators, but its source has no history to backfill, so the signal is left `NULL` for years — see [Indicators in progress](#indicators-in-progress).
-- **MOVE Index** (`mart_move`): z-score (capped at ±3) of the MOVE Index's 30-day moving average against its 1000-day history, a bond-market volatility and systemic-stress signal. Same as VIX, the signal is left `NULL` until the window is complete — see [Indicators in progress](#indicators-in-progress).
+- **Yield Curve (10Y-2Y)** (`int_yield_curve`): spread between the 10-year and 2-year US Treasury yields, a recession-risk and risk-appetite signal. Computes the daily spread, a categorical signal (`BULLISH` / `NEUTRAL` / `BEARISH`) with a normalized value, and applies forward-fill when one of the two series is missing for a given day — each row explicitly flags whether its value is real or carried forward (`is_dgs2_imputed`, `is_dgs10_imputed`).
+- **FED Balance Sheet (QE/QT)** (`int_fed_balance_sheet`): weekly change in the Federal Reserve's balance sheet (WALCL), a liquidity expansion/contraction signal. Computes the week-over-week delta and the same normalized categorical signal.
+- **DXY (US Dollar Index)** (`int_dxy`): distance of the US Dollar Index from its 50-day moving average, a global liquidity pressure signal.
+- **VIX (Volatility Index)** (`int_vix`): z-score (capped at ±3) of the VIX's 20-day moving average against its 750-day history, a risk-aversion signal.
+- **S&P 500 Risk Regime** (`int_spx`): distance of the S&P 500 from its 200-day moving average, a structural risk-appetite signal.
+- **NASDAQ 100 Tech Risk Regime** (`int_nasdaq_tech_risk`): distance of the NASDAQ 100 (^NDX) from its 200-day moving average, a technology-led risk-appetite signal. Same pattern as SPX, and it also exposes the daily change plus the `btc_bias` and `message` for each threshold from its rules file.
+- **MOVE Index** (`int_move`): z-score (capped at ±3) of the MOVE Index's 30-day moving average against its 1000-day history, a bond-market volatility and systemic-stress signal.
+- **Eurozone M3 Money Supply** (`int_eurozone_m3`): year-over-year growth of euro area M3 (ECB, monthly), ranked as a percentile against its own last 180 months (~15 years), a regional liquidity signal. M3 is used as a proxy for M2, which isn't ingested yet — since the signal is a percentile of the series against its own history, the thresholds work the same on M3's distribution.
+- **US M2 Money Supply** (`int_usa_m2`): year-over-year growth of US M2 (FRED `M2SL`, monthly), ranked as a percentile against its own last 240 months (~20 years), a domestic and global liquidity signal.
+- **China M2 Money Supply** (`int_china_m2`): year-over-year growth of China's M2 (TradingEconomics, monthly), ranked as a percentile against its own last 120 months (~10 years), a global liquidity expansion/contraction signal.
 
-All ten follow the same pattern: generic staging, a mart with the business logic, rules documented in `docs/indicator_rules/`, tests, and a data contract.
+Each indicator follows the same pattern: generic staging, an `int_<indicator>` with the business logic, rules documented in `docs/indicator_rules/`, and tests. `int_macro_signals` stacks the ten by date with no recalculation.
+
+**`mart_macro_global`** has one row per calendar day (7 days a week, since BTC trades every day), from the first day any indicator has a signal (1979-12-01) to the latest observation. For each indicator it exposes `signal_<indicator>` and `<indicator>_as_of`:
+
+- **Carry-forward with expiry.** Each day takes the indicator's latest observation, so weekly and monthly indicators — and daily ones over weekends and holidays — still have a value. `<indicator>_as_of` is the date of the observation used, so carried values are always visible. An observation older than its cadence's source-freshness `error_after` (3 days daily, 14 weekly, 60 monthly — read from `_sources.yml`) expires and both columns go `NULL`.
+- **Look-ahead caveat.** Monthly indicators are dated by the month they describe, not by when they're published (euro area M3 for August comes out at the end of September), so a row can carry a figure that wasn't public yet on that day. It doesn't matter for the agent's daily reading; it does for a backtest.
+- **No combined layer signal yet.** How the ten signals combine into one `layer_signal` is still to be defined, so the mart exposes the individual signals only.
 
 ## Indicators in progress
 
-Some indicators (VIX, MOVE, US M2, China M2, SPX, and NDX) are already built and working, but their calculation depends on a history window the project hasn't fully accumulated yet — for example, VIX needs 750 observations of its 20-day moving average to compute a reliable z-score and MOVE needs 1000 observations of its 30-day moving average (1029 daily rows in total), and US M2 needs 240 months of year-over-year growth (252 monthly rows in total) — today there are far fewer. For US M2 this is a pending backfill rather than time: FRED publishes M2SL from 1959, but only the last 12 months have been loaded. China M2 is the opposite case: it needs 120 months of year-over-year growth (132 monthly rows), and its TradingEconomics page only exposes the last two months, so there is nothing to backfill — the series accumulates one month at a time from 2026-07 and the first signal would arrive around mid-2037, unless a historical source for it is ingested. SPX and NDX need 200 days for their moving average, so only their most recent rows have a signal so far.
+All ten indicators have a signal today, but over very different spans of history:
 
-In the meantime, those marts intentionally return `NULL` for `signal`/`normalized_value` — **this is not a bug**. A guardrail (`COUNT() OVER` the same window) prevents computing an average or z-score from fewer observations than the formula requires, instead of silently returning a partial result dressed up as a complete one. This resolves itself, with no code changes, as more historical data loads in.
+| Indicator | History loaded | Signal from |
+|---|---|---|
+| US M2 | 1959-01 | 1979-12 |
+| Eurozone M3 | 1980-01 | 1995-12 |
+| China M2 | 2008-01 | 2018-12 |
+| VIX | 2010-01 | 2013-01 |
+| MOVE | 2020-01 | 2024-02 |
+| Yield Curve | 2025-09 | 2025-09 |
+| FED Balance Sheet | 2025-10 | 2025-10 |
+| DXY | 2025-09 | 2025-12 |
+| S&P 500 | 2025-09 | 2026-07 |
+| NASDAQ 100 | 2025-09 | 2026-07 |
 
-**MOVE** was held back over an irregular load cadence; the history now loads daily (no gaps longer than a weekend or holiday), so it's built on the same pattern as VIX.
+The gap between "history loaded" and "signal from" is each formula's window: until it's complete, the indicator intentionally returns `NULL` for `signal`/`normalized_value` — **this is not a bug**. A guardrail (`COUNT() OVER` the same window) prevents computing an average, z-score or percentile from fewer observations than the formula requires, instead of silently returning a partial result dressed up as a complete one.
+
+The five indicators at the bottom of the table only have about a year of history because their backfill hasn't been loaded yet, even though the ingestion config already declares one (yields from 1962/1976, FED balance sheet from 2002, DXY, S&P 500 and NASDAQ 100 from 2010). Until it is, `mart_macro_global` has only the macro liquidity and volatility indicators before late 2025, and those five columns are `NULL`. Loading those backfills fixes it with no code changes.
 
 ## Roadmap
 
-Yield Curve, FED Balance Sheet, DXY, VIX, SPX, NASDAQ 100, MOVE, Eurozone M3, US M2, and China M2 are the first indicators in a broader **Macro Global** layer — macroeconomic signals meant to feed BTC market-cycle evaluation. The plan is to keep expanding this layer with more macro indicators reusing the same pattern (staging, mart, versioned rules, tests, data contract), and to use it as the foundation for other signal layers down the line.
+Macro Global is the first of several signal layers meant to feed BTC market-cycle evaluation, each with the same shape: `int_<indicator>` models, an `int_<layer>_signals`, and one `mart_<layer>` for the agent. Next are **Crypto Liquidity** (`mart_crypto_liquidity`, starting with daily BTC spot ETF flows) and **On-chain BTC** (`mart_onchain_btc`). Once at least two layers are ready, a final `mart_btc_cycle_signal` will combine them.
 
 ## Running it
 
