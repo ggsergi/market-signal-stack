@@ -89,7 +89,7 @@ class BGeometricsLoader(BaseDataLoader):
                     raise ValueError(
                         f"BGeometrics rate limit reached for {self.endpoint} "
                         f"(free tier: 10 requests/hour, 15/day per IP). "
-                        f"Retry after the quota resets."
+                        f"Retry after the quota resets. API said: {resp.text[:200]}"
                     )
                 if resp.status_code not in RETRYABLE_STATUS:
                     if not resp.ok:
@@ -165,6 +165,14 @@ class BGeometricsLoader(BaseDataLoader):
             raise ValueError(
                 f"Unexpected BGeometrics response for {self.endpoint}: expected a "
                 f"list of observations, got {type(observations).__name__}"
+            )
+
+        # A wrong value_field would otherwise look like an empty range and load
+        # nothing without anyone noticing.
+        if observations and not any(self.value_field in o for o in observations):
+            raise ValueError(
+                f"BGeometrics {self.endpoint}: no observation carries "
+                f"'{self.value_field}'. Fields returned: {sorted(observations[0])}"
             )
 
         payloads = [p for p in (self._build_payload(o) for o in observations) if p]

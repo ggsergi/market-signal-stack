@@ -96,6 +96,8 @@ CNY_BILLIONS = "cny_billions"
 INDEX_UNIT = "index"
 # Native bitcoin units: on-chain supply and exchange flows are counted in BTC.
 BTC = "btc"
+# Standard deviations from a mean, as in the MVRV Z-Score.
+Z_SCORE = "z_score"
 
 UNITS = frozenset(
     {
@@ -109,6 +111,7 @@ UNITS = frozenset(
         CNY_BILLIONS,
         INDEX_UNIT,
         BTC,
+        Z_SCORE,
     }
 )
 

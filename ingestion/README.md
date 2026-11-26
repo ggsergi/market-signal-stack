@@ -102,6 +102,9 @@ Defined in `config/sources.yaml`:
 | `btc_etf_net_flow` | `btc_etf_net_flow` | Farside Investors (scraped) | `bitcoin-etf-flow-all-data` | daily |
 | `btc_sopr` | `btc_sopr` | BGeometrics | `sopr` | daily (7-day delay) |
 | `btc_rhodl_ratio` | `btc_rhodl_ratio` | BGeometrics | `rhodl-ratio` | daily |
+| `btc_mvrv_zscore` | `btc_mvrv_zscore` | BGeometrics | `mvrv-zscore` | daily (7-day delay) |
+| `btc_nupl` | `btc_nupl` | BGeometrics | `nupl` | daily (7-day delay) |
+| `btc_realized_price` | `btc_realized_price` | BGeometrics | `realized-price` | daily (7-day delay) |
 
 ### Adding an indicator
 

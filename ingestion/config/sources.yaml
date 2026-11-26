@@ -355,3 +355,39 @@ indicators:
     unit: "ratio"
     frequency: "daily"
     backfill_start_date: "2022-11-26"
+
+  # The three below are also derivable in dbt from the Coin Metrics series above,
+  # which reach back to 2010 and carry no delay. These are BGeometrics' own published
+  # values (four years, 7-day delay), kept as a ready-made reference.
+  btc_mvrv_zscore:
+    provider: bgeometrics
+    endpoint: "mvrv-zscore"
+    value_field: "mvrvZscore"
+    data_type: metric
+    metric_code: "btc_mvrv_zscore"
+    metric_family_code: "on_chain"
+    unit: "z_score"
+    frequency: "daily"
+    backfill_start_date: "2022-11-26"
+
+  btc_nupl:
+    provider: bgeometrics
+    endpoint: "nupl"
+    value_field: "nupl"
+    data_type: metric
+    metric_code: "btc_nupl"
+    metric_family_code: "on_chain"
+    unit: "ratio"
+    frequency: "daily"
+    backfill_start_date: "2022-11-26"
+
+  btc_realized_price:
+    provider: bgeometrics
+    endpoint: "realized-price"
+    value_field: "realizedPrice"
+    data_type: metric
+    metric_code: "btc_realized_price"
+    metric_family_code: "on_chain"
+    unit: "usd"
+    frequency: "daily"
+    backfill_start_date: "2022-11-26"
