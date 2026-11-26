@@ -166,7 +166,7 @@ Each layer mart also combines its indicators into a single reading for the day, 
 - **`layer_coverage`**: the share of the layer's total weight that has a signal that day, from 0 to 1.
 - **`layer_signal`**: `BULLISH` when `layer_score` is 0.3 or more, `BEARISH` below −0.3, and `NEUTRAL` in between.
 
-A reading built on a few indicators would look as confident as one built on all of them, so **below 70% coverage there's no layer signal**: `layer_score` and `layer_signal` are `NULL`, while `layer_coverage` is still published so you can see how far off it is. The calculation uses exact decimal arithmetic, because the cutoffs land exactly on real values — Macro Global's first signal day has coverage of exactly 70%.
+A reading built on a few indicators would look as confident as one built on all of them, so **below 70% coverage there's no layer signal**: `layer_score` and `layer_signal` are `NULL`, while `layer_coverage` is still published so you can see how far off it is. The calculation uses exact decimal arithmetic, because weights are decimals and a value can land exactly on a cutoff (7.7 / 11 is exactly 70%). Macro Global's first signal day, 2010-10-18, has coverage 7.9 / 11 ≈ 71.8%: seven of its ten indicators have a signal (VIX, MOVE and China M2 don't yet).
 
 What that means today:
 

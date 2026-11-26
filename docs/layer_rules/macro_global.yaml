@@ -9,10 +9,12 @@ layer_rules:
       layer_score: "SUM(normalized_value * weight) / SUM(weight), solo indicadores con señal"
       layer_coverage: "SUM(weight de los indicadores con señal) / SUM(weight de todos los indicadores de la capa)"
       # Aritmética decimal exacta (NUMERIC): los pesos y valores son decimales
-      # (0.9, 1.1, 0.6...) y los cortes caen justo en ellos. Hoy el primer día
-      # con señal de la capa (2025-10-08) tiene cobertura 7.7 / 11 = 0.70
-      # exacta, y 2 días tienen layer_score = 0.30 exacto; en coma flotante
-      # podrían quedar en 0.6999... o 0.2999... y cambiar de lado.
+      # (0.9, 1.1, 0.6...) y los cortes pueden caer justo en ellos (p. ej. una
+      # cobertura de 7.7 / 11 = 0.70 exacta). Con los backfills cargados, el
+      # primer día con señal de la capa es 2010-10-18 (cobertura 7.9 / 11 =
+      # 0.718: ese día S&P 500 y NASDAQ 100 completan su ventana de 200 días).
+      # En coma flotante un valor justo en el corte podría quedar en 0.6999...
+      # o 0.2999... y cambiar de lado.
       arithmetic: "NUMERIC"
     coverage:
       min_coverage: 0.70
