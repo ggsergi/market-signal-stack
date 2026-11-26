@@ -6,7 +6,7 @@ sources:
     config:
       loaded_at_field: ingested_at
       freshness:
-        filter: "metric IN ('yield_2y', 'yield_10y', 'spx', 'ndx', 'dxy', 'vix', 'move', 'btc_price', 'btc_etf_net_flow', 'btc_exchange_inflow', 'btc_exchange_outflow')"
+        filter: "metric IN ('yield_2y', 'yield_10y', 'spx', 'ndx', 'dxy', 'vix', 'move', 'btc_price', 'btc_etf_net_flow', 'btc_exchange_inflow', 'btc_exchange_outflow', 'btc_rhodl_ratio')"
         warn_after: {count: 1, period: day}
         error_after: {count: 3, period: day}
     tables:
@@ -43,6 +43,21 @@ sources:
             filter: "timeframe = '1mo'"
             warn_after: {count: 40, period: day}
             error_after: {count: 60, period: day}
+
+      # Same pattern, for the BGeometrics on-chain series (btc_sopr,
+      # btc_rhodl_ratio, plus the cross-check series). The free plan publishes
+      # SOPR with a ~7-day lag (confirmed by Sara, 2026-11-26), so the 3-day
+      # daily block would expire it every day. error_after (10 days = 7
+      # observed + margin) is also SOPR's max_age_days in mart_onchain_btc
+      # (macro freshness_error_after_days). RHODL (1-day lag) is also in the
+      # daily block above and takes its max_age_days (3) from there.
+      - name: raw_market_metrics_bgeometrics
+        identifier: raw_market_metrics
+        config:
+          freshness:
+            filter: "source = 'BGeometrics'"
+            warn_after: {count: 8, period: day}
+            error_after: {count: 10, period: day}
 
       # Mismo patrón que raw_market_metrics_monthly, para las métricas de
       # cadencia semanal (hoy solo fed_liquidity, WALCL de FRED).

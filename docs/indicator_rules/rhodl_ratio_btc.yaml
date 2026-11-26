@@ -1,0 +1,116 @@
+indicator_rules:
+  rhodl_ratio_btc:
+    description: "RHODL Ratio as a Bitcoin cycle indicator comparing young vs old coin wealth to detect speculative excess or accumulation phases"
+    layer: onchain_btc
+    relevance_level: 3
+    weight: 1.1
+    # STATUS: closed with PROVISIONAL bands (decided 2026-11-26); model
+    # int_btc_rhodl_ratio. See docs/specs/rhodl_ratio_btc.md.
+    calculation:
+      formula: "rhodl = value"
+      frequency: "daily (calendar days)"
+      # Real source: BGeometrics (free API), precomputed. It differs from the
+      # original rule (Notion), which named Glassnode (indicators/rhodl_ratio);
+      # Glassnode is not in raw_market_metrics. RHODL can't be derived from the
+      # raw layer (it needs realized-cap HODL waves).
+      source: "BGeometrics"
+      series:
+        - rhodlRatio  # metric 'btc_rhodl_ratio' in raw_market_metrics (payload field 'rhodlRatio')
+      notes: >
+        RHODL Ratio compares wealth in young coins (1w–1m) vs older coins (1y–2y).
+        High values historically mark cycle tops. History in the raw layer only
+        from 2022-11-26 (free-API window). Same shape as LookIntoBitcoin's
+        RHODL chart at cycle level (2022 low ~200, 2024 high ~13.7k, latest
+        ~720). Accepted as the source (decided 2026-11-26), with:
+        (a) provider level differences of roughly 5-10 % (Coinglass reads
+        3.5-8.4 % below BGeometrics on five checked days; LookIntoBitcoin
+        ~5 % below Coinglass on normal days);
+        (b) thresholds calibrated on LookIntoBitcoin's chart zones and applied
+        to this series: valid at cycle scale only;
+        (c) LookIntoBitcoin's dip of 2026-09-02 (512.64) is not replicated by
+        BGeometrics (1,003) or Coinglass (931.60): treated as a one-day
+        artifact of LookIntoBitcoin;
+        (d) recalibrate the bands when more history exists.
+        Glassnode is paywalled, not used. See spec §2.1.
+    normalization:
+      type: "threshold"
+      unit: "ratio"
+      # Raw daily value, no smoothing (decided 2026-11-26).
+      rolling_window: null
+      notes: "Threshold-based zones are preferred over z-score due to long-cycle, non-stationary behavior."
+    # The original thresholds (0.2 / 0.5 / 1.5 / 3.0) were on another scale:
+    # with them every day of 2022-2026 was -1.0. Replaced by provisional bands
+    # on the raw scale. The outer bands come from LookIntoBitcoin's chart zones
+    # (red zone from ~22k, green zone below ~350; levels read off the chart
+    # image, not published values). The three middle bands are ASSUMED.
+    # Each band is [min_inclusive, max_exclusive), like every other rule.
+    thresholds:
+      - min_inclusive: 22000
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El RHODL Ratio se encuentra en niveles extremadamente altos, señalando euforia y un posible techo de ciclo en Bitcoin."
+      # ASSUMED
+      - min_inclusive: 5000
+        max_exclusive: 22000
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El RHODL Ratio indica un mercado sobrecalentado, históricamente asociado a fases avanzadas del ciclo alcista."
+      # ASSUMED
+      - min_inclusive: 1000
+        max_exclusive: 5000
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El RHODL Ratio se sitúa en una zona intermedia, sin señales claras de euforia ni de capitulación."
+      # ASSUMED
+      - min_inclusive: 350
+        max_exclusive: 1000
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El RHODL Ratio muestra un mercado relativamente frío, típico de fases de acumulación o crecimiento saludable."
+      - min_inclusive: null
+        max_exclusive: 350
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El RHODL Ratio se encuentra en niveles muy bajos, históricamente asociados a suelos de ciclo y oportunidades de acumulación."
+    limitations:
+      - >
+        Cycle peaks get lower each cycle (LookIntoBitcoin: ~220k in 2013,
+        ~90k in 2017, ~14k in 2021 and 2024). With a fixed -1.0 band from 22k,
+        the 2021 and 2024 tops stay at -0.6, not -1.0.
+      - >
+        History only from 2022-11-26: no cycle top inside the window, so the
+        bands can't be checked against our own data; they rely on the chart.
+        Recalibrate when more history exists.
+      - >
+        Provider differences: RHODL levels differ by roughly 5-10 % between
+        providers, and single-day moves can differ much more (2026-09-02).
+        Readings near a band edge are not reliable across providers.
+    missing_data:
+      invalid_value: "if rhodl is NULL or <= 0, everything is NULL"
+      no_row: "no signal that day; no forward-fill in the indicator (carry-forward with expiry belongs to the layer mart)"
+    freshness:
+      # Per-indicator expiry in mart_onchain_btc (decided 2026-11-26): 3 days
+      # (1 observed + 2 margin). Real source: btc_rhodl_ratio is in the daily
+      # freshness filter of _sources.yml, and int_onchain_btc_signals reads
+      # this value from the daily block (error_after 3 days). The BGeometrics
+      # block (10 days) still covers it too, as a looser check.
+      max_age_days: 3
+    # Reference points for tests at warn severity, inside the BGeometrics
+    # window. Values checked in the refactor build on 2026-11-26.
+    reference_points:
+      - date: "2022-12-26"
+        description: "end-2022 bottom"
+        rhodl_observed: 202.39
+        expected_signal: "BULLISH"
+        expected_normalized_value: 1.0
+      - date: "2024-12-10"
+        description: "2024 high (stays at -0.6: declining cycle tops)"
+        rhodl_observed: 13730.39
+        expected_signal: "BEARISH"
+        expected_normalized_value: -0.6
