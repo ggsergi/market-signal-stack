@@ -20,6 +20,12 @@
 --
 -- The body is shared by every layer mart: macros/layer_mart.sql.
 
+-- Grant to Sara's marts reader. The principal comes from
+-- SARA_MARTS_READER_PRINCIPAL (not versioned; the repo is public) via
+-- macros/sara_marts_reader.sql, which always returns the placeholder in the
+-- refactor dataset so a refactor build can never grant Sara access.
+{{ config(grants={'roles/bigquery.dataViewer': [sara_marts_reader()]}) }}
+
 {%- set indicators = ['btc_nupl', 'btc_mvrv_zscore', 'btc_sopr', 'btc_rhodl_ratio'] %}
 
 {{ layer_mart('int_onchain_btc_signals', indicators, include_data_age=true) }}

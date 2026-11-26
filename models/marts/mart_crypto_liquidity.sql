@@ -15,6 +15,12 @@
 --
 -- El cuerpo es común a todos los marts de capa: macros/layer_mart.sql.
 
+-- Grant to Sara's marts reader. The principal comes from
+-- SARA_MARTS_READER_PRINCIPAL (not versioned; the repo is public) via
+-- macros/sara_marts_reader.sql, which always returns the placeholder in the
+-- refactor dataset so a refactor build can never grant Sara access.
+{{ config(grants={'roles/bigquery.dataViewer': [sara_marts_reader()]}) }}
+
 {%- set indicators = ['btc_etf_net_flow', 'btc_exchange_net_flow'] %}
 
 {{ layer_mart('int_crypto_liquidity_signals', indicators) }}

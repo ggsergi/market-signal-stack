@@ -20,12 +20,10 @@ models:
       access: public
       contract:
         enforced: true
-      grants:
-        # The real principal lives in the SARA_MARTS_READER_PRINCIPAL
-        # environment variable (not versioned) so the real service account
-        # name is not exposed in a public repo. The default is only an
-        # illustrative placeholder.
-        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
+      # grants: set in the model .sql with config(), through
+      # macros/sara_marts_reader.sql (project macros cannot be called in
+      # properties files). Safeguard: always the placeholder in the refactor
+      # dataset, even if SARA_MARTS_READER_PRINCIPAL is set.
       meta:
         layer: onchain_btc
     tests:
