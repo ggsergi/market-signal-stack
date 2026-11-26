@@ -114,11 +114,11 @@ Three layers built, each exposed to the agent as one mart: **Macro Global** (`ma
 
 Each indicator follows the same pattern: generic staging, an `int_<indicator>` with the business logic, rules documented in `docs/indicator_rules/`, and tests. `int_macro_signals` stacks the ten by date with no recalculation.
 
-**`mart_macro_global`** has one row per calendar day (7 days a week, since BTC trades every day), from the first day any indicator has a signal (1979-12-01) to the latest observation. For each indicator it exposes `signal_<indicator>` and `<indicator>_as_of`:
+**`mart_macro_global`** has one row per calendar day (7 days a week, since BTC trades every day), from the first day any indicator has a signal (1976-06-01, the yield curve) to the latest observation. For each indicator it exposes `signal_<indicator>` and `<indicator>_as_of`:
 
 - **Carry-forward with expiry.** Each day takes the indicator's latest observation, so weekly and monthly indicators — and daily ones over weekends and holidays — still have a value. `<indicator>_as_of` is the date of the observation used, so carried values are always visible. An observation older than its cadence's source-freshness `error_after` (3 days daily, 14 weekly, 60 monthly — read from `_sources.yml`) expires and both columns go `NULL`.
 - **Look-ahead caveat.** Monthly indicators are dated by the month they describe, not by when they're published (euro area M3 for August comes out at the end of September), so a row can carry a figure that wasn't public yet on that day. It doesn't matter for the agent's daily reading; it does for a backtest.
-- **Combined layer signal.** `layer_signal` weighs the ten into one reading — see [Layer signal](#layer-signal). It's `NULL` before 2025-10-08, while five indicators are still waiting for their backfill.
+- **Combined layer signal.** `layer_signal` weighs the ten into one reading — see [Layer signal](#layer-signal). It's `NULL` before 2010-10-18, the first day the indicators with a signal reach 70% of the layer's weight (the day S&P 500 and NASDAQ 100 get their first signal).
 
 ### Crypto Liquidity
 
@@ -166,11 +166,11 @@ Each layer mart also combines its indicators into a single reading for the day, 
 - **`layer_coverage`**: the share of the layer's total weight that has a signal that day, from 0 to 1.
 - **`layer_signal`**: `BULLISH` when `layer_score` is 0.3 or more, `BEARISH` below −0.3, and `NEUTRAL` in between.
 
-A reading built on a few indicators would look as confident as one built on all of them, so **below 70% coverage there's no layer signal**: `layer_score` and `layer_signal` are `NULL`, while `layer_coverage` is still published so you can see how far off it is. The calculation uses exact decimal arithmetic, because the cutoffs land exactly on real values — Macro Global's first signal day has coverage of exactly 70%.
+A reading built on a few indicators would look as confident as one built on all of them, so **below 70% coverage there's no layer signal**: `layer_score` and `layer_signal` are `NULL`, while `layer_coverage` is still published so you can see how far off it is. The calculation uses exact decimal arithmetic, because weights are decimals and a value can land exactly on a cutoff (7.7 / 11 is exactly 70%). Macro Global's first signal day, 2010-10-18, has coverage 7.9 / 11 ≈ 71.8%: seven of its ten indicators have a signal (VIX, MOVE and China M2 don't yet).
 
 What that means today:
 
-- **Macro Global has no layer signal before 2025-10-08.** The five indicators whose backfill is still pending (yield curve, FED balance sheet, DXY, S&P 500 and NASDAQ 100) carry more than half of the layer's weight, so before they have data the coverage can't reach 70%. Loading those backfills would extend the layer signal back years, with no code changes.
+- **Macro Global has no layer signal before 2010-10-18.** Before then the indicators with a signal don't reach 70% of the layer's weight; that day S&P 500 and NASDAQ 100 get their first signal, once their 200-day window over the data loaded from 2010 is complete.
 - **Crypto Liquidity needs both of its indicators** — neither reaches 70% of the weight alone — so it has no layer signal before the first ETF session (2024-01-11), or on any day one of the two is missing or expired.
 - **On-chain BTC has no layer signal before 2022-11-26.** Before the BGeometrics series start, only NUPL and MVRV-Z exist (2.0 of 3.8, 53%). From then on it survives one missing indicator (coverage ≥ 71%), not two.
 
@@ -181,9 +181,14 @@ All sixteen indicators have a signal today, but over very different spans of his
 | Indicator | History loaded | Signal from |
 |---|---|---|
 | US M2 | 1959-01 | 1979-12 |
+| Yield Curve | 1962-01 | 1976-06 |
 | Eurozone M3 | 1980-01 | 1995-12 |
+| FED Balance Sheet | 2002-12 | 2002-12 |
 | China M2 | 2008-01 | 2018-12 |
 | VIX | 2010-01 | 2013-01 |
+| DXY | 2010-01 | 2010-03 |
+| S&P 500 | 2010-01 | 2010-10 |
+| NASDAQ 100 | 2010-01 | 2010-10 |
 | NUPL | 2010-07 | 2012-01 |
 | MVRV Z-Score | 2010-07 | 2012-01 |
 | BTC Exchange Net Flow | 2011-04 | 2011-04 |
@@ -191,15 +196,10 @@ All sixteen indicators have a signal today, but over very different spans of his
 | SOPR | 2022-11 | 2022-11 |
 | RHODL Ratio | 2022-11 | 2022-11 |
 | BTC Spot ETF Net Flow | 2024-01 | 2024-01 |
-| Yield Curve | 2025-09 | 2025-09 |
-| FED Balance Sheet | 2025-10 | 2025-10 |
-| DXY | 2025-09 | 2025-12 |
-| S&P 500 | 2025-09 | 2026-07 |
-| NASDAQ 100 | 2025-09 | 2026-07 |
 
 The gap between "history loaded" and "signal from" is each formula's window: until it's complete, the indicator intentionally returns `NULL` for `signal`/`normalized_value` — **this is not a bug**. A guardrail (`COUNT() OVER` the same window) prevents computing an average, z-score or percentile from fewer observations than the formula requires, instead of silently returning a partial result dressed up as a complete one.
 
-The yields backfill is now loaded (10Y from 1962-01-02, 2Y from 1976-06-01, so the curve spread exists from 1976-06-01); the other four indicators at the bottom of the table only have about a year of history because their backfill hasn't been loaded yet, even though the ingestion config already declares one (FED balance sheet from 2002, DXY, S&P 500 and NASDAQ 100 from 2010). Until it is, `mart_macro_global` has only the macro liquidity and volatility indicators before late 2025, and those five columns are `NULL`. Loading those backfills fixes it with no code changes.
+All five macro backfills are loaded: yields (10Y from 1962-01-02, 2Y from 1976-06-01, so the curve spread exists from 1976-06-01), FED balance sheet from 2002-12-18, and DXY, S&P 500 and NASDAQ 100 from 2010-01-04.
 
 ## Roadmap
 
