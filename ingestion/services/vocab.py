@@ -21,6 +21,7 @@ FARSIDE = "Farside Investors"
 BTC_MAGAZINE_PRO = "Bitcoin Magazine Pro"
 TRADING_ECONOMICS = "TradingEconomics"
 COIN_METRICS = "Coin Metrics"
+BGEOMETRICS = "BGeometrics"
 
 SOURCES = frozenset(
     {
@@ -34,6 +35,7 @@ SOURCES = frozenset(
         BTC_MAGAZINE_PRO,
         TRADING_ECONOMICS,
         COIN_METRICS,
+        BGEOMETRICS,
     }
 )
 

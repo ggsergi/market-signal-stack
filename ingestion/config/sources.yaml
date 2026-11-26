@@ -70,6 +70,15 @@ providers:
       start_date: null
       end_date: null
 
+  bgeometrics:
+    defaults:
+      source_name: "BGeometrics"
+      source_code: "bgeometrics"
+      market_type: "crypto"
+      asset_code: null
+      start_date: null
+      end_date: null
+
   yahoo:
     defaults:
       # "Yahoo Finance", not "Yahoo" as in the_trimarket_crew: services/vocab.py is the
@@ -313,3 +322,36 @@ indicators:
     unit: "usd_millions"
     frequency: "daily"
     backfill_start_date: "2024-01-11"
+
+  # --- BGeometrics (bitcoin-data.com, free tier) ---------------------------------
+  # Free, no key, 10 requests/hour and 15/day per IP: one request per indicator per
+  # run. The free tier serves a rolling window of about four years, so the backfill
+  # date is only a floor: the API returns whatever part of the range it still holds.
+  # Both values are stored as BGeometrics computes them; their scale may differ from
+  # other providers' versions of the same indicator.
+
+  # Spent Output Profit Ratio. Served with a 7-day delay on the free tier, so the
+  # newest row is always about a week old.
+  btc_sopr:
+    provider: bgeometrics
+    endpoint: "sopr"
+    value_field: "sopr"
+    data_type: metric
+    metric_code: "btc_sopr"
+    metric_family_code: "on_chain"
+    unit: "ratio"
+    frequency: "daily"
+    backfill_start_date: "2022-11-26"
+
+  # RHODL Ratio. The 30-day average the API publishes alongside it (rhodl1m) is kept
+  # in payload.
+  btc_rhodl_ratio:
+    provider: bgeometrics
+    endpoint: "rhodl-ratio"
+    value_field: "rhodlRatio"
+    data_type: metric
+    metric_code: "btc_rhodl_ratio"
+    metric_family_code: "on_chain"
+    unit: "ratio"
+    frequency: "daily"
+    backfill_start_date: "2022-11-26"

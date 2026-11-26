@@ -1,7 +1,7 @@
 # Ingestion
 
 Downloads market, macro and on-chain data from FRED, the ECB, Yahoo Finance,
-TradingEconomics, Coin Metrics and Farside and lands it in
+TradingEconomics, Coin Metrics, Farside and BGeometrics and lands it in
 BigQuery, in `raw_market_signals.raw_market_metrics`. That table is the source the
 dbt project in the repo root reads from.
 
@@ -100,6 +100,8 @@ Defined in `config/sources.yaml`:
 | `btc_exchange_inflow` | `btc_exchange_inflow` | Coin Metrics | `FlowInExNtv` | daily |
 | `btc_exchange_outflow` | `btc_exchange_outflow` | Coin Metrics | `FlowOutExNtv` | daily |
 | `btc_etf_net_flow` | `btc_etf_net_flow` | Farside Investors (scraped) | `bitcoin-etf-flow-all-data` | daily |
+| `btc_sopr` | `btc_sopr` | BGeometrics | `sopr` | daily (7-day delay) |
+| `btc_rhodl_ratio` | `btc_rhodl_ratio` | BGeometrics | `rhodl-ratio` | daily |
 
 ### Adding an indicator
 
@@ -126,7 +128,7 @@ ingestion/
 ├── scripts/run_jobs.py          entry point
 ├── services/
 │   ├── etl_pipeline/
-│   │   ├── sources/api/         FRED, ECB, Yahoo Finance and Coin Metrics loaders
+│   │   ├── sources/api/         FRED, ECB, Yahoo Finance, Coin Metrics and BGeometrics loaders
 │   │   ├── sources/html/        TradingEconomics and Farside scrapers
 │   │   ├── transforms/          loader output -> raw table rows
 │   │   ├── jobs/                the refresh job (CLI)
