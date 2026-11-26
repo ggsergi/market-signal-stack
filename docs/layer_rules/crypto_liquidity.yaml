@@ -1,0 +1,31 @@
+layer_rules:
+  crypto_liquidity:
+    description: "Combined signal of the Crypto Liquidity layer: weighted average of its indicators' normalized values"
+    mart: mart_crypto_liquidity
+    calculation:
+      # Mismas reglas que macro_global (docs/layer_rules/macro_global.yaml).
+      layer_score: "SUM(normalized_value * weight) / SUM(weight), solo indicadores con señal"
+      layer_coverage: "SUM(weight de los indicadores con señal) / SUM(weight de todos los indicadores de la capa)"
+      arithmetic: "NUMERIC"
+    coverage:
+      min_coverage: 0.70
+      below_min: "layer_score y layer_signal = NULL (layer_coverage se publica igualmente)"
+      # Con solo dos indicadores, ninguno llega al 70 % por sí solo (ETF 1.3 /
+      # 2.4 = 54 %, exchange 1.1 / 2.4 = 46 %): la capa necesita los dos.
+      # Antes de la primera sesión de los ETF (2024-01-11) layer_signal es NULL,
+      # y también cualquier día en que uno de los dos falte o haya caducado.
+      note: "requiere ambos indicadores"
+    thresholds:
+      - min_inclusive: 0.3
+        max_exclusive: null
+        signal: "BULLISH"
+      - min_inclusive: -0.3
+        max_exclusive: 0.3
+        signal: "NEUTRAL"
+      - min_inclusive: null
+        max_exclusive: -0.3
+        signal: "BEARISH"
+    # Pesos de docs/indicator_rules/ (fuente de verdad). Suma 2.4.
+    indicators:
+      btc_etf_net_flow: 1.3
+      btc_exchange_net_flow: 1.1

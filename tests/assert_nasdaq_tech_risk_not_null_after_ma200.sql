@@ -4,7 +4,7 @@ WITH numbered AS (
     SELECT
         *,
         ROW_NUMBER() OVER (ORDER BY event_time) AS rn
-    FROM {{ ref('mart_nasdaq_tech_risk') }}
+    FROM {{ ref('int_nasdaq_tech_risk') }}
 )
 
 SELECT *

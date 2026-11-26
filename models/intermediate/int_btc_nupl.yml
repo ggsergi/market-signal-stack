@@ -1,0 +1,98 @@
+version: 2
+
+models:
+  - name: int_btc_nupl
+    description: >
+      Indicator btc_nupl_cycle_regime: Bitcoin NUPL (Net Unrealized
+      Profit/Loss) derived from Coin Metrics' MVRV as nupl = 1 - 1 / mvrv,
+      one row per calendar day. NULL before 2012-01-01 (the derived NUPL is
+      not a market reading before then) and when mvrv is missing or not
+      positive. Layer onchain_btc, relevance_level 2, weight 0.9. Rules in
+      docs/indicator_rules/btc_nupl_cycle_regime.yaml; spec in
+      docs/specs/btc_nupl_cycle_regime.md.
+    config:
+      meta:
+        indicator_id: btc_nupl_cycle_regime
+        layer: onchain_btc
+        relevance_level: 2
+        weight: 0.9
+    tests:
+      # nupl is NULL exactly when the rule says so: before the start date, or
+      # with a missing / non-positive mvrv.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(nupl IS NULL) = (event_time < TIMESTAMP '2012-01-01' OR mvrv IS NULL OR mvrv <= 0)"
+      # The signal is only missing when nupl is.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(signal IS NULL) = (nupl IS NULL)"
+      # With mvrv > 0, NUPL is always below 1.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "nupl < 1"
+      # Pins the formula against future edits.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ABS(nupl - (1 - 1 / mvrv)) < 1e-9"
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: mvrv
+        data_type: FLOAT64
+        description: "Coin Metrics MVRV (CapMVRVCur, metric 'btc_mvrv') as is. Kept before the start date, for visibility."
+      - name: nupl
+        data_type: FLOAT64
+        description: "1 - 1 / mvrv. NULL before 2012-01-01 and when mvrv is NULL or <= 0."
+      - name: normalized_value
+        data_type: FLOAT64
+        description: "-1.0 / -0.6 / 0.0 / 0.6 / 1.0. NULL when nupl is NULL."
+      - name: signal
+        data_type: STRING
+        description: "NULL when nupl is NULL."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
+        description: "Bot text for the band, from the rule (Spanish). NULL when nupl is NULL."
+
+unit_tests:
+  # Band edges, with MVRV values whose NUPL is exact in floating point:
+  # 4.0 -> 0.75, 2.5 -> 0.60, 2.0 -> 0.50, 1.0 -> 0.00, 0.8 -> -0.25.
+  # Plus the three NULL cases and a row of another metric that must be ignored.
+  - name: btc_nupl_band_edges_and_nulls
+    model: int_btc_nupl
+    given:
+      # stg_market_metrics is ephemeral, so the mock has to be SQL.
+      - input: ref('stg_market_metrics')
+        format: sql
+        rows: |
+          SELECT 'btc_mvrv' AS metric, CAST(4.0 AS FLOAT64) AS value, TIMESTAMP '2020-01-01' AS event_time UNION ALL
+          SELECT 'btc_mvrv', 2.5, TIMESTAMP '2020-01-02' UNION ALL
+          SELECT 'btc_mvrv', 2.0, TIMESTAMP '2020-01-03' UNION ALL
+          SELECT 'btc_mvrv', 1.0, TIMESTAMP '2020-01-04' UNION ALL
+          SELECT 'btc_mvrv', 0.8, TIMESTAMP '2020-01-05' UNION ALL
+          SELECT 'btc_mvrv', 3.0, TIMESTAMP '2011-12-31' UNION ALL
+          SELECT 'btc_mvrv', 0.0, TIMESTAMP '2020-01-06' UNION ALL
+          SELECT 'btc_mvrv', CAST(NULL AS FLOAT64), TIMESTAMP '2020-01-07' UNION ALL
+          SELECT 'btc_supply', 19000000.0, TIMESTAMP '2020-01-01'
+    expect:
+      rows:
+        - {event_time: 2020-01-01 00:00:00, nupl: 0.75, normalized_value: -1.0, signal: BEARISH, btc_bias: negative}
+        - {event_time: 2020-01-02 00:00:00, nupl: 0.6, normalized_value: -0.6, signal: BEARISH, btc_bias: negative}
+        - {event_time: 2020-01-03 00:00:00, nupl: 0.5, normalized_value: 0.0, signal: NEUTRAL, btc_bias: neutral}
+        - {event_time: 2020-01-04 00:00:00, nupl: 0.0, normalized_value: 0.6, signal: BULLISH, btc_bias: positive}
+        - {event_time: 2020-01-05 00:00:00, nupl: -0.25, normalized_value: 1.0, signal: BULLISH, btc_bias: positive}
+        - {event_time: 2011-12-31 00:00:00, nupl: null, normalized_value: null, signal: null, btc_bias: null}
+        - {event_time: 2020-01-06 00:00:00, nupl: null, normalized_value: null, signal: null, btc_bias: null}
+        - {event_time: 2020-01-07 00:00:00, nupl: null, normalized_value: null, signal: null, btc_bias: null}

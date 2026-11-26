@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: int_onchain_btc_signals
+    description: >
+      Signals of the on-chain BTC layer indicators in long format: one row
+      per (indicator, observation date), unioned with UNION ALL from the
+      int_<indicator> models. Same rows and signals as each int_<indicator>;
+      computes nothing new. Base of mart_onchain_btc.
+    config:
+      meta:
+        layer: onchain_btc
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['indicator', 'event_date']
+    columns:
+      - name: indicator
+        description: "Indicator name, equal to the suffix of its int_<indicator>."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['btc_nupl', 'btc_mvrv_zscore', 'btc_sopr', 'btc_rhodl_ratio']
+      - name: event_date
+        description: "Observation date (DATE(event_time) of the int_<indicator>)."
+        tests:
+          - not_null
+      - name: signal
+        description: >
+          Indicator signal on that date. NULL where the int_<indicator> has no
+          value (NUPL before 2012-01-01, MVRV-Z before 2012-01-01, missing or
+          invalid inputs).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: normalized_value
+        description: "normalized_value of the indicator on that date (NULL like signal)."
+      - name: max_age_days
+        description: >
+          Expiry of the as-of carry-forward in mart_onchain_btc, in days: the
+          error_after of the indicator's freshness block in _sources.yml
+          (3 for NUPL, MVRV-Z and RHODL; 10 for SOPR).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [3, 10]
+                quote: false
+      - name: weight
+        description: >
+          Weight of the indicator in the layer_score: the meta.weight of its
+          int_<indicator>.yml, exact copy of the weight in its rule in
+          docs/indicator_rules/. NUMERIC (exact decimal).
+        tests:
+          - not_null

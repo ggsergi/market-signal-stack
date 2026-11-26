@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: int_crypto_liquidity_signals
+    description: >
+      Señales de los indicadores de la capa de liquidez cripto en formato
+      largo: una fila por (indicador, fecha de observación), unidas con UNION
+      ALL desde los int_<indicador>. Mismas filas y señales que cada
+      int_<indicador>; no calcula nada nuevo. Base de mart_crypto_liquidity.
+    config:
+      meta:
+        layer: crypto_liquidity
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['indicator', 'event_date']
+    columns:
+      - name: indicator
+        description: "Nombre del indicador, igual al sufijo de su int_<indicador>."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['btc_etf_net_flow', 'btc_exchange_net_flow']
+      - name: event_date
+        description: "Fecha de la observación (DATE(event_time) del int_<indicador>)."
+        tests:
+          - not_null
+      - name: signal
+        description: >
+          Señal del indicador en esa fecha. NULL solo en btc_exchange_net_flow,
+          cuando falta inflow u outflow o ambos son 0.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: normalized_value
+        description: "normalized_value del indicador en esa fecha (NULL igual que signal)."
+      - name: max_age_days
+        description: >
+          Caducidad del arrastre as-of en mart_crypto_liquidity, en días: el
+          error_after del bloque de freshness diario de _sources.yml.
+        tests:
+          - not_null
+      - name: weight
+        description: >
+          Peso del indicador en el layer_score del mart de capa: el meta.weight
+          de su int_<indicador>.yml, copia exacta del weight de su regla en
+          docs/indicator_rules/. NUMERIC (decimal exacto).
+        tests:
+          - not_null

@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: int_btc_etf_net_flow
+    description: >
+      Indicador btc_etf_net_flow: flujo neto diario de los ETF spot de BTC de
+      EE. UU. (Farside, total de todos los ETF, millones de USD). Una fila por
+      sesión: los festivos que Farside publica con 0 (antes de 2025-07) se
+      excluyen, igual que los posteriores, que no tienen fila. Señal por umbral
+      diario (>= 200 BULLISH, < -100 BEARISH) y, en días que serían NEUTRAL,
+      por racha de 5 sesiones seguidas de entradas o de salidas. Layer
+      crypto_liquidity. Reglas en docs/indicator_rules/btc_etf_net_flow.yaml.
+    config:
+      meta:
+        indicator_id: btc_etf_net_flow
+        layer: crypto_liquidity
+        relevance_level: null
+        weight: 1.3
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "net_flow_musd != 0"
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: net_flow_musd
+        data_type: FLOAT64
+        description: "Flujo neto del día, millones de USD (columna Total de Farside). Nunca 0: los ceros son festivos y se excluyen."
+        tests:
+          - not_null
+      - name: is_streak_signal
+        data_type: BOOL
+        description: "TRUE si la señal del día sale de la racha de 5 sesiones (normalized_value +/-0.6) y no del umbral diario."
+        tests:
+          - not_null
+      - name: normalized_value
+        data_type: FLOAT64
+        description: "1.0 / 0.6 / 0.0 / -0.6 / -1.0. Nunca NULL: la regla no tiene ventana mínima (la racha simplemente no aplica hasta tener 5 sesiones)."
+        tests:
+          - not_null
+      - name: signal
+        data_type: STRING
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
+        description: "Texto del bot de la regla original, con señal positiva / neutra / negativa."

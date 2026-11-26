@@ -4,7 +4,7 @@ WITH mart AS (
         is_dgs2_imputed,
         is_dgs10_imputed,
         ROW_NUMBER() OVER (ORDER BY event_time DESC) AS rn_desc
-    FROM {{ ref('mart_yield_curve') }}
+    FROM {{ ref('int_yield_curve') }}
 ),
 
 total_rows AS (

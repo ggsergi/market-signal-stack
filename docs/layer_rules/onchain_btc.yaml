@@ -1,0 +1,47 @@
+layer_rules:
+  onchain_btc:
+    description: "Combined signal of the On-chain BTC layer: weighted average of its indicators' normalized values"
+    mart: mart_onchain_btc
+    calculation:
+      # Same rules as macro_global and crypto_liquidity.
+      layer_score: "SUM(normalized_value * weight) / SUM(weight), only indicators with a signal"
+      layer_coverage: "SUM(weight of indicators with a signal) / SUM(weight of all the layer's indicators)"
+      arithmetic: "NUMERIC"
+    coverage:
+      min_coverage: 0.70
+      below_min: "layer_score and layer_signal = NULL (layer_coverage is published anyway)"
+      # Total 3.8, so 70 % needs 2.66. One indicator missing: >= 2.7 / 3.8 =
+      # 71 % (signal kept); two missing: <= 2.2 / 3.8 = 58 % (NULL). Before
+      # the BGeometrics series start (2022-11-26) only NUPL + MVRV-Z exist:
+      # 2.0 / 3.8 = 53 %, so layer_signal is NULL. The threshold is not
+      # lowered to create history; the int_ models keep full history.
+      note: "layer_signal NULL before 2022-11-26"
+    thresholds:
+      - min_inclusive: 0.3
+        max_exclusive: null
+        signal: "BULLISH"
+      - min_inclusive: -0.3
+        max_exclusive: 0.3
+        signal: "NEUTRAL"
+      - min_inclusive: null
+        max_exclusive: -0.3
+        signal: "BEARISH"
+    # Weights from docs/indicator_rules/ (source of truth). Sum 3.8.
+    # NUPL and MVRV-Z are the "MVRV family" (both functions of MVRV):
+    # 2.0 / 3.8 = 53 % of the weight. Accepted; review once the agent uses the
+    # layer signal.
+    indicators:
+      btc_nupl: 0.9
+      btc_mvrv_zscore: 1.1   # TO CONFIRM
+      btc_sopr: 0.7
+      btc_rhodl_ratio: 1.1
+    # Per-indicator expiry of the as-of carry-forward (max_age_days), from the
+    # error_after of each indicator's freshness block in _sources.yml.
+    max_age_days:
+      btc_nupl: 3          # daily block
+      btc_mvrv_zscore: 3   # daily block
+      btc_sopr: 10         # BGeometrics block (free plan, ~7-day lag)
+      btc_rhodl_ratio: 3   # daily block (1-day lag; decided 2026-11-26)
+    data_age:
+      column: "<indicator>_data_age_days"
+      definition: "days between signal_date and the indicator's latest observation up to that day; published even when expired"

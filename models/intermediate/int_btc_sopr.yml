@@ -1,0 +1,80 @@
+version: 2
+
+models:
+  - name: int_btc_sopr
+    description: >
+      Indicator sopr_spent_output_profit_ratio: Bitcoin SOPR precomputed by
+      BGeometrics (variant to be confirmed with Sara), raw daily value, one
+      row per calendar day from 2022-11-26 (free-API window). Published with
+      a ~7-day lag (BGeometrics free plan). NULL when the value is missing or
+      not positive. Layer onchain_btc, relevance_level 1, weight 0.7. Rules in
+      docs/indicator_rules/sopr_spent_output_profit_ratio.yaml; spec in
+      docs/specs/sopr_spent_output_profit_ratio.md.
+    config:
+      meta:
+        indicator_id: sopr_spent_output_profit_ratio
+        layer: onchain_btc
+        relevance_level: 1
+        weight: 0.7
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(signal IS NULL) = (sopr IS NULL)"
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: sopr
+        data_type: FLOAT64
+        description: "BGeometrics SOPR (metric 'btc_sopr', payload field 'sopr'). NULL if missing or <= 0."
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: normalized_value
+        data_type: FLOAT64
+        description: "-0.6 / -0.3 / 0.0 / 0.6 / 1.0. NULL when sopr is NULL."
+      - name: signal
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
+        description: "Bot text for the band, from the rule (Spanish). NULL when sopr is NULL."
+
+unit_tests:
+  # Band edges (lower bound inclusive) and the NULL cases.
+  - name: btc_sopr_band_edges_and_nulls
+    model: int_btc_sopr
+    given:
+      - input: ref('stg_market_metrics')
+        format: sql
+        rows: |
+          SELECT 'btc_sopr' AS metric, CAST(1.05 AS FLOAT64) AS value, TIMESTAMP '2024-01-01' AS event_time UNION ALL
+          SELECT 'btc_sopr', 1.00, TIMESTAMP '2024-01-02' UNION ALL
+          SELECT 'btc_sopr', 0.98, TIMESTAMP '2024-01-03' UNION ALL
+          SELECT 'btc_sopr', 0.90, TIMESTAMP '2024-01-04' UNION ALL
+          SELECT 'btc_sopr', 0.89, TIMESTAMP '2024-01-05' UNION ALL
+          SELECT 'btc_sopr', 0.0, TIMESTAMP '2024-01-06' UNION ALL
+          SELECT 'btc_sopr', CAST(NULL AS FLOAT64), TIMESTAMP '2024-01-07' UNION ALL
+          SELECT 'btc_nupl', 0.5, TIMESTAMP '2024-01-01'
+    expect:
+      rows:
+        - {event_time: 2024-01-01 00:00:00, normalized_value: -0.6, signal: BEARISH, btc_bias: negative}
+        - {event_time: 2024-01-02 00:00:00, normalized_value: -0.3, signal: BEARISH, btc_bias: negative}
+        - {event_time: 2024-01-03 00:00:00, normalized_value: 0.0, signal: NEUTRAL, btc_bias: neutral}
+        - {event_time: 2024-01-04 00:00:00, normalized_value: 0.6, signal: BULLISH, btc_bias: positive}
+        - {event_time: 2024-01-05 00:00:00, normalized_value: 1.0, signal: BULLISH, btc_bias: positive}
+        - {event_time: 2024-01-06 00:00:00, normalized_value: null, signal: null, btc_bias: null}
+        - {event_time: 2024-01-07 00:00:00, normalized_value: null, signal: null, btc_bias: null}

@@ -1,0 +1,49 @@
+layer_rules:
+  macro_global:
+    description: "Combined signal of the Macro Global layer: weighted average of its indicators' normalized values"
+    mart: mart_macro_global
+    calculation:
+      # Cada día, sobre los indicadores con señal ese día (incluidas las
+      # arrastradas y no caducadas por el as-of del mart). Los indicadores sin
+      # señal no entran ni en el numerador ni en el denominador.
+      layer_score: "SUM(normalized_value * weight) / SUM(weight), solo indicadores con señal"
+      layer_coverage: "SUM(weight de los indicadores con señal) / SUM(weight de todos los indicadores de la capa)"
+      # Aritmética decimal exacta (NUMERIC): los pesos y valores son decimales
+      # (0.9, 1.1, 0.6...) y los cortes caen justo en ellos. Hoy el primer día
+      # con señal de la capa (2025-10-08) tiene cobertura 7.7 / 11 = 0.70
+      # exacta, y 2 días tienen layer_score = 0.30 exacto; en coma flotante
+      # podrían quedar en 0.6999... o 0.2999... y cambiar de lado.
+      arithmetic: "NUMERIC"
+    coverage:
+      min_coverage: 0.70
+      below_min: "layer_score y layer_signal = NULL (layer_coverage se publica igualmente)"
+    # Cada tramo es [min_inclusive, max_exclusive), como en las reglas de
+    # indicador.
+    thresholds:
+      - min_inclusive: 0.3
+        max_exclusive: null
+        signal: "BULLISH"
+      - min_inclusive: -0.3
+        max_exclusive: 0.3
+        signal: "NEUTRAL"
+      - min_inclusive: null
+        max_exclusive: -0.3
+        signal: "BEARISH"
+    # Pesos: los de cada regla de indicador en docs/indicator_rules/ (fuente de
+    # verdad). Copia para referencia; suma 11.0, así que el 70 % exige 7.7.
+    indicators:
+      yield_curve: 1.3
+      fed_balance_sheet: 1.3
+      dxy: 1.1
+      vix: 0.9
+      spx: 1.1
+      nasdaq_tech_risk: 1.1
+      move: 1.1
+      eurozone_m3: 0.9
+      usa_m2: 1.1
+      china_m2: 1.1
+    worked_example:
+      # Caso de prueba a mano (test unitario en Paso B).
+      inputs: "normalized_value +1.0, +0.6, -1.0 con pesos 1.3, 1.1, 0.9 (cobertura 100 %)"
+      layer_score: "(1.3 + 0.66 - 0.9) / 3.3 = 1.06 / 3.3 = 0.3212..."
+      layer_signal: "BULLISH"

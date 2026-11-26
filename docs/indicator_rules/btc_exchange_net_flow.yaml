@@ -1,0 +1,90 @@
+indicator_rules:
+  btc_exchange_net_flow:
+    description: "Net BTC exchange flow (outflows minus inflows) as a proxy for accumulation versus selling pressure"
+    # La regla original dice 'liquidity_crypto'; se usa 'crypto_liquidity' para
+    # coincidir con el nombre de la capa y de su mart (mart_crypto_liquidity).
+    layer: crypto_liquidity
+    relevance_level: 3
+    weight: 1.1
+    calculation:
+      # Signo: positivo = salen BTC de exchanges = acumulación = BULLISH. Se
+      # ignora el apartado del documento que dice lo contrario (contradicción del
+      # propio texto).
+      formula: "net_flow_btc = exchange_outflow_btc - exchange_inflow_btc"
+      frequency: "daily (calendar days)"
+      # La regla original cita Glassnode (free tier); los datos ingeridos son de
+      # Coin Metrics, con los mismos conceptos (flujo bruto a/desde exchanges en BTC).
+      source: "Coin Metrics (community API)"
+      series:
+        - FlowInExNtv   # metric 'btc_exchange_inflow' en raw_market_metrics
+        - FlowOutExNtv  # metric 'btc_exchange_outflow' en raw_market_metrics
+      notes: "Positive values indicate BTC leaving exchanges (accumulation); negative values indicate BTC entering exchanges (selling pressure)."
+    normalization:
+      type: "threshold"
+      unit: "btc"
+      # La regla original indica una ventana de 30 días (z-score) solo como
+      # contexto: no se implementa, los umbrales son fijos.
+      rolling_window: null
+    # Umbrales de la regla original (diseñados para Glassnode). Cada tramo es
+    # [min_inclusive, max_exclusive), para resolver los solapes de límites.
+    thresholds:
+      - min_inclusive: 5000
+        max_exclusive: null
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "Se observan retiros netos muy elevados de BTC desde exchanges, indicando acumulación fuerte y una clara reducción de presión vendedora."
+      - min_inclusive: 2000
+        max_exclusive: 5000
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "Los flujos netos de BTC muestran retiros sostenidos desde exchanges, señalando acumulación y un entorno favorable para BTC."
+      - min_inclusive: -2000
+        max_exclusive: 2000
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "Los flujos de BTC hacia y desde exchanges se mantienen equilibrados, sin señales claras de acumulación ni de distribución."
+      - min_inclusive: -5000
+        max_exclusive: -2000
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "Se detectan entradas netas relevantes de BTC hacia exchanges, indicando aumento de presión vendedora y mayor riesgo a corto plazo."
+      - min_inclusive: null
+        max_exclusive: -5000
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "Entradas netas muy elevadas de BTC a exchanges, señalando fuerte intención de venta, distribución y riesgo significativo de caídas."
+    # "Varios días seguidos (3-5) de retiros altos = alcista; de entradas altas =
+    # bajista". SUPOSICIÓN: como un día con retiros altos ya es BULLISH por
+    # umbral, la racha refuerza la señal (0.6 -> 1.0, -0.6 -> -1.0). El día
+    # reforzado toma el mensaje y btc_bias del tramo resultante (+/-1.0).
+    streak_rule:
+      days: 3  # N
+      outflow_streak:
+        condition: "los últimos N días naturales (incluido el actual) con net_flow >= 2000"
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+      inflow_streak:
+        condition: "los últimos N días naturales (incluido el actual) con net_flow < -2000"
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+    missing_data:
+      one_series_missing: "si falta inflow u outflow ese día, net_flow y la señal son NULL (sin relleno); el día rompe la racha"
+      both_zero: "inflow = 0 y outflow = 0 (13 días de 2011, sin cobertura) se trata como sin dato: NULL"
+    limitations:
+      - >
+        Los umbrales en BTC no son comparables antes de ~2020: el volumen bruto
+        diario que Coin Metrics atribuye a exchanges cambia mucho con su cobertura
+        (media de entradas ~1.7k BTC/día en 2011, ~66k en 2015-2017, ~21k en 2026),
+        así que con umbrales fijos los años antiguos caen mucho más en los tramos
+        extremos (~60 % de los días en 2015-2017, ~15-20 % en 2024-2026).
+      - >
+        Los datos se revisan: Coin Metrics publica estos flujos como 'flash' y los
+        corrige durante unos 30 días; la ingesta relee esa ventana con MERGE, así
+        que la señal de los últimos ~30 días puede cambiar entre ejecuciones.

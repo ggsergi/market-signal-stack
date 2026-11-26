@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: int_btc_exchange_net_flow
+    description: >
+      Indicador btc_exchange_net_flow: flujo neto diario de BTC desde exchanges
+      (Coin Metrics, FlowOutExNtv - FlowInExNtv, en BTC). Positivo = salen BTC
+      de exchanges = acumulación = BULLISH. Una fila por día natural con dato en
+      alguna de las dos series. Umbrales fijos de la regla original y racha de
+      3 días que refuerza +/-0.6 a +/-1.0 (suposición documentada). Limitaciones:
+      umbrales no comparables antes de ~2020 y datos revisados durante ~30 días.
+      Layer crypto_liquidity, relevance_level 3, weight 1.1. Reglas en
+      docs/indicator_rules/btc_exchange_net_flow.yaml.
+    config:
+      meta:
+        indicator_id: btc_exchange_net_flow
+        layer: crypto_liquidity
+        relevance_level: 3
+        weight: 1.1
+    tests:
+      # net_flow_btc NULL <=> señal NULL: la señal solo falta cuando falta el dato.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(net_flow_btc IS NULL) = (signal IS NULL)"
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: inflow_btc
+        data_type: FLOAT64
+        description: "Entradas a exchanges del día (FlowInExNtv), BTC. NULL si Coin Metrics no tiene ese día."
+      - name: outflow_btc
+        data_type: FLOAT64
+        description: "Salidas de exchanges del día (FlowOutExNtv), BTC. NULL si Coin Metrics no tiene ese día."
+      - name: net_flow_btc
+        data_type: FLOAT64
+        description: >
+          outflow_btc - inflow_btc. NULL, sin relleno, si falta una de las dos
+          series o si ambas son 0 (13 días de 2011 sin cobertura).
+      - name: is_streak_signal
+        data_type: BOOL
+        description: "TRUE si la racha de 3 días ha reforzado la señal (0.6 -> 1.0 o -0.6 -> -1.0). NULL si net_flow_btc es NULL."
+      - name: normalized_value
+        data_type: FLOAT64
+        description: "1.0 / 0.6 / 0.0 / -0.6 / -1.0. NULL cuando net_flow_btc es NULL."
+      - name: signal
+        data_type: STRING
+        description: "NULL cuando net_flow_btc es NULL."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
+        description: "Mensaje del tramo resultante de la regla original (un día reforzado por racha toma el de +/-1.0)."

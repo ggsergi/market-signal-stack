@@ -5,7 +5,7 @@ WITH numbered AS (
     SELECT
         *,
         ROW_NUMBER() OVER (ORDER BY event_time) AS rn
-    FROM {{ ref('mart_eurozone_m3') }}
+    FROM {{ ref('int_eurozone_m3') }}
 )
 
 SELECT *

@@ -19,7 +19,7 @@ README_PATH = PROJECT_ROOT / "README.md"
 
 # Subgraph display order; any layer not listed here (e.g. a future
 # models/marts/ subfolder) is appended after these, alphabetically.
-LAYER_ORDER = ["source", "staging", "marts"]
+LAYER_ORDER = ["source", "staging", "intermediate", "marts"]
 
 # --- Nodos fijos, NO generados desde el manifest ---
 # Representan el destino físico del dataset y el consumidor externo (fuera del DAG de dbt).
@@ -45,18 +45,24 @@ def load_manifest() -> dict:
 
 
 def build_graph(manifest: dict) -> tuple[dict, list]:
-    """Return (nodes, edges) from the manifest, excluding test nodes.
+    """Return (nodes, edges) from the manifest: this project's sources and
+    models only (no tests, no hooks, no installed packages such as Elementary).
 
     nodes: node_id -> {"label": str, "layer": str}
     edges: list of (upstream_node_id, downstream_node_id)
     """
+    project = manifest["metadata"]["project_name"]
     nodes: dict = {}
 
     for source_id, source in manifest["sources"].items():
+        if source["package_name"] != project:
+            continue
         nodes[source_id] = {"label": source["name"], "layer": "source"}
 
     for node_id, node in manifest["nodes"].items():
-        if node["resource_type"] == "test":
+        if node["resource_type"] not in ("model", "seed", "snapshot"):
+            continue
+        if node["package_name"] != project:
             continue
         # fqn = [project_name, folder, ..., node_name] -> folder is the layer
         # (e.g. "staging", "marts"), matching the models/ directory structure.
@@ -70,6 +76,15 @@ def build_graph(manifest: dict) -> tuple[dict, list]:
         for upstream_id in node.get("depends_on", {}).get("nodes", []):
             if upstream_id in nodes:
                 edges.append((upstream_id, node_id))
+
+    # Sources que ningún modelo usa (p. ej. raw_market_metrics_weekly/_monthly,
+    # declarados solo para source freshness) no aportan al lineage: fuera.
+    used_upstream = {upstream_id for upstream_id, _ in edges}
+    nodes = {
+        node_id: info
+        for node_id, info in nodes.items()
+        if info["layer"] != "source" or node_id in used_upstream
+    }
 
     return nodes, edges
 

@@ -1,0 +1,114 @@
+indicator_rules:
+  btc_nupl_cycle_regime:
+    description: "Bitcoin Net Unrealized Profit/Loss (NUPL) as a cycle and market psychology indicator"
+    layer: onchain_btc
+    relevance_level: 2
+    weight: 0.9
+    calculation:
+      # The original rule asked for Glassnode's precomputed series
+      # (unrealized_profit_loss), which is not in raw_market_metrics. It is
+      # derived from Coin Metrics' MVRV instead: MVRV = market cap / realized
+      # cap, so NUPL = (market cap - realized cap) / market cap = 1 - 1 / MVRV
+      # (an algebraic identity). This is NUPL on Coin Metrics' realized cap,
+      # used as is, without checking it against Glassnode (decided).
+      formula: "nupl = 1 - 1 / btc_mvrv"
+      frequency: "daily (calendar days)"
+      source: "Coin Metrics (community API)"
+      series:
+        - CapMVRVCur  # metric 'btc_mvrv' in raw_market_metrics
+      notes: >
+        NUPL measures the proportion of unrealized profits and losses across the
+        Bitcoin network. Spec: docs/specs/btc_nupl_cycle_regime.md.
+    normalization:
+      type: "threshold"
+      unit: "ratio"
+      # The original rule said 365; fixed thresholds need no window.
+      rolling_window: null
+    # Each band is [min_inclusive, max_exclusive), like every other rule.
+    # MVRV equivalent (MVRV = 1 / (1 - NUPL)): 0.70 -> 3.33, 0.60 -> 2.50,
+    # 0.30 -> 1.43, 0.00 -> 1.00.
+    thresholds:
+      - min_inclusive: 0.70
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El NUPL se encuentra en zona de euforia extrema, históricamente asociada a techos de ciclo y mayor riesgo de corrección en BTC."
+      - min_inclusive: 0.60
+        max_exclusive: 0.70
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El NUPL se sitúa en niveles elevados de euforia, indicando exceso de beneficios no realizados y riesgo creciente para BTC."
+      - min_inclusive: 0.30
+        max_exclusive: 0.60
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El NUPL se encuentra en una fase de optimismo saludable, típica de tendencias alcistas sostenibles sin excesos."
+      # Message rewritten without a direction: the band is reached both rising
+      # from losses and falling from euphoria (e.g. 2026, from 0.6 to 0.27).
+      - min_inclusive: 0.00
+        max_exclusive: 0.30
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El NUPL se sitúa en niveles bajos de beneficio no realizado, una zona entre el miedo y el optimismo típica de fases de acumulación."
+      - min_inclusive: null
+        max_exclusive: 0.00
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El NUPL se encuentra en zona de pérdidas no realizadas, históricamente asociada a capitulación y suelos de ciclo en BTC."
+    missing_data:
+      # Before 2012 the derived NUPL is not a market reading: almost every coin
+      # was mined at a cost of ~0 before there was a market, so realized cap is
+      # tiny (MVRV up to 146, NUPL 0.99 in 2010; -1.59 in 2011-10).
+      start_date: "2012-01-01"
+      before_start_date: "nupl, normalized_value, signal, btc_bias and message are NULL"
+      invalid_mvrv: "if btc_mvrv is NULL or <= 0, everything is NULL (guard against the division; does not happen today)"
+      no_row: "no signal that day; no forward-fill in the indicator (carry-forward with expiry belongs to the layer mart)"
+    # Historical reference points for tests at warn severity: values checked in
+    # raw_market_metrics on 2026-11-11. Coin Metrics revises its series, so a
+    # warning here means "review", not necessarily an error.
+    reference_points:
+      - date: "2013-12-04"
+        description: "2013 cycle top"
+        nupl_observed: 0.788
+        expected_signal: "BEARISH"
+        expected_normalized_value: -1.0
+      - date: "2015-01-14"
+        description: "2015 cycle bottom"
+        nupl_observed: -0.774
+        expected_signal: "BULLISH"
+        expected_normalized_value: 1.0
+      - date: "2017-12-17"
+        description: "2017 cycle top"
+        nupl_observed: 0.765
+        expected_signal: "BEARISH"
+        expected_normalized_value: -1.0
+      - date: "2018-12-15"
+        description: "2018 cycle bottom"
+        nupl_observed: -0.448
+        expected_signal: "BULLISH"
+        expected_normalized_value: 1.0
+      - date: "2020-03-12"
+        description: "COVID crash"
+        nupl_observed: -0.140
+        expected_signal: "BULLISH"
+        expected_normalized_value: 1.0
+      - date: "2021-03-13"
+        description: "first 2021 top"
+        nupl_observed: 0.736
+        expected_signal: "BEARISH"
+        expected_normalized_value: -1.0
+      - date: "2021-11-10"
+        description: "second, lower 2021 top"
+        nupl_observed: 0.632
+        expected_signal: "BEARISH"
+        expected_normalized_value: -0.6
+      - date: "2022-11-21"
+        description: "2022 cycle bottom"
+        nupl_observed: -0.286
+        expected_signal: "BULLISH"
+        expected_normalized_value: 1.0
