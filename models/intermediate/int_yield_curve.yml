@@ -5,6 +5,18 @@ models:
     config:
       meta:
         weight: 1.3
+    tests:
+      # Coverage-aware instead of not_null: yield_10y starts on 1962-01-02 and
+      # yield_2y on 1976-06-01 (FRED T10Y2Y also starts on 1976-06-01), so
+      # raw_diff is legitimately NULL for the 3,592 days before the 2Y exists.
+      # raw_diff must be NULL exactly when the 2Y or the 10Y yield is missing
+      # (dgs2 / dgs10 are the forward-filled series), and non-NULL when both
+      # exist. normalized_value and signal follow raw_diff (explicit NULL).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(raw_diff IS NULL) = (dgs2 IS NULL OR dgs10 IS NULL)"
+          config:
+            severity: error
     columns:
       - name: event_time
         data_type: TIMESTAMP
@@ -21,8 +33,6 @@ models:
         data_type: BOOL
       - name: raw_diff
         data_type: FLOAT64
-        tests:
-          - not_null
       - name: normalized_value
         data_type: FLOAT64
       - name: signal
