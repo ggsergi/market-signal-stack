@@ -8,8 +8,9 @@
 --
 -- depends_on: {{ ref('int_macro_signals') }}
 -- depends_on: {{ ref('int_crypto_liquidity_signals') }}
+-- depends_on: {{ ref('int_onchain_btc_signals') }}
 
-{%- set layer_models = ['int_macro_signals', 'int_crypto_liquidity_signals'] %}
+{%- set layer_models = ['int_macro_signals', 'int_crypto_liquidity_signals', 'int_onchain_btc_signals'] %}
 {%- set expected = [] %}
 {%- if execute %}
     {%- for layer_model in layer_models %}

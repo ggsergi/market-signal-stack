@@ -21,8 +21,14 @@
         layer_signal   = BULLISH si >= 0.3; NEUTRAL si [-0.3, 0.3); BEARISH si < -0.3.
       Aritmética NUMERIC (decimal exacta): pesos y valores son decimales y los
       cortes caen justo en ellos (p. ej. cobertura 7.7 / 11 = 0.70).
+    - <indicador>_data_age_days (only with include_data_age=true; opt-in so
+      the other layer marts and their contracts stay unchanged): days between
+      signal_date and the indicator's latest observation up to that day,
+      published even when that observation has expired (signal_<indicador>
+      and <indicador>_as_of NULL), so a consumer can weigh how stale each
+      signal is. NULL only before the indicator's first observation.
 #}
-{% macro layer_mart(signals_model, indicators) %}
+{% macro layer_mart(signals_model, indicators, include_data_age=false) %}
 
 WITH observations AS (
     SELECT
@@ -98,7 +104,8 @@ fresh AS (
         IF(DATE_DIFF(signal_date, last_observation.event_date, DAY) <= max_age_days,
             last_observation.signal, NULL) AS signal,
         IF(DATE_DIFF(signal_date, last_observation.event_date, DAY) <= max_age_days,
-            last_observation.normalized_value, NULL) AS normalized_value
+            last_observation.normalized_value, NULL) AS normalized_value,
+        DATE_DIFF(signal_date, last_observation.event_date, DAY) AS data_age_days
     FROM as_of
 ),
 
@@ -111,6 +118,11 @@ by_day AS (
         {%- for indicator in indicators %}
         MAX(IF(indicator = '{{ indicator }}', as_of_date, NULL)) AS {{ indicator }}_as_of,
         {%- endfor %}
+        {%- if include_data_age %}
+        {%- for indicator in indicators %}
+        MAX(IF(indicator = '{{ indicator }}', data_age_days, NULL)) AS {{ indicator }}_data_age_days,
+        {%- endfor %}
+        {%- endif %}
         SUM(IF(signal IS NOT NULL, CAST(normalized_value AS NUMERIC) * weight, NULL)) AS weighted_sum,
         SUM(IF(signal IS NOT NULL, weight, NUMERIC '0')) AS weight_with_signal,
         SUM(weight) AS weight_total
@@ -135,6 +147,11 @@ SELECT
     {%- for indicator in indicators %}
     {{ indicator }}_as_of,
     {%- endfor %}
+    {%- if include_data_age %}
+    {%- for indicator in indicators %}
+    {{ indicator }}_data_age_days,
+    {%- endfor %}
+    {%- endif %}
     layer_score,
     layer_coverage,
     -- Primer-match-gana con límite inferior inclusivo ([min_inclusive,

@@ -1,0 +1,65 @@
+indicator_rules:
+  btc_realized_price:
+    description: "Bitcoin Realized Price as an on-chain fair value benchmark based on aggregated acquisition cost"
+    layer: onchain_btc
+    relevance_level: 2
+    weight: 0.9
+    # STATUS: PARKED (2026-11-26). Not part of the onchain_btc layer and no
+    # model is built: decision P8 of docs/specs/btc_nupl_cycle_regime.md
+    # stands. Reasons: redundant with NUPL (distance = MVRV - 1 exactly), bands
+    # not monotonic, and -0.6 on 100 % of days in 2013, 2017, 2021, 2024 and
+    # 2025. Kept for reference. See docs/specs/btc_realized_price.md.
+    calculation:
+      formula: "distance = (BTC_spot_price / realized_price) - 1"
+      frequency: "daily (calendar days)"
+      # Real source if ever built: Coin Metrics, derived. It differs from the
+      # original rule (Notion), which named Glassnode (market/realized_price);
+      # Glassnode is not in raw_market_metrics.
+      #   realized_price = btc_market_cap / btc_mvrv / btc_supply
+      #   spot_price     = btc_market_cap / btc_supply
+      #   distance       = btc_mvrv - 1 (supply cancels)
+      source: "Coin Metrics (derived from raw_market_metrics)"
+      series:
+        - CapMVRVCur     # metric 'btc_mvrv'
+        - CapMrktCurUSD  # metric 'btc_market_cap' (only for realized_price / spot_price columns)
+        - SplyCur        # metric 'btc_supply' (only for realized_price / spot_price columns)
+      notes: "Realized Price = realized cap / supply. BGeometrics' btc_realized_price matches the Coin Metrics derivation within 0.84 %; kept only as a cross-check."
+    normalization:
+      type: "threshold"
+      unit: "percentage_distance"
+      # PENDING (only if un-parked): fixed thresholds need no window.
+      rolling_window: 365
+    # Original ranges converted to [min_inclusive, max_exclusive), like every
+    # other rule. Values unchanged. The bands are not monotonic: both
+    # [-0.30, -0.05) and [0.05, 0.30) are +0.6 BULLISH around a NEUTRAL band.
+    thresholds:
+      - min_inclusive: 0.30
+        max_exclusive: null
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "BTC cotiza muy por encima de su precio realizado, indicando una fase de fuerte expansión donde históricamente aumenta el riesgo de sobrevaloración."
+      - min_inclusive: 0.05
+        max_exclusive: 0.30
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "BTC se mantiene claramente por encima de su precio realizado, señalando una fase de expansión saludable del ciclo."
+      - min_inclusive: -0.05
+        max_exclusive: 0.05
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "BTC cotiza cerca de su precio realizado, reflejando equilibrio entre valor de mercado y coste agregado de la red."
+      - min_inclusive: -0.30
+        max_exclusive: -0.05
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "BTC cotiza por debajo de su precio realizado, una zona históricamente asociada a acumulación y oportunidades de largo plazo."
+      - min_inclusive: null
+        max_exclusive: -0.30
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "BTC se encuentra muy por debajo de su precio realizado, señalando capitulación profunda y zonas históricas de suelo de ciclo."

@@ -1,0 +1,147 @@
+version: 2
+
+models:
+  - name: mart_onchain_btc
+    description: >
+      On-chain BTC layer: one row per calendar day with the signal of each
+      indicator of the layer (signal_<indicator>), the date of the
+      observation used (<indicator>_as_of) and the age of the latest
+      observation (<indicator>_data_age_days). Each day takes the indicator's
+      latest observation if it is not older than its expiry (error_after of
+      its freshness block in _sources.yml: 3 days for NUPL, MVRV-Z and RHODL, 10 for
+      SOPR); otherwise signal and as_of are NULL, while data_age
+      is still published. Calendar: from the first day with any signal to the
+      latest date with observations.
+      layer_score, layer_coverage and layer_signal combine the day's signals
+      with each indicator's weight (docs/layer_rules/onchain_btc.yaml).
+      layer_signal is NULL before 2022-11-26. Spec:
+      docs/specs/onchain_btc_layer.md.
+    config:
+      access: public
+      contract:
+        enforced: true
+      grants:
+        # The real principal lives in the SARA_MARTS_READER_PRINCIPAL
+        # environment variable (not versioned) so the real service account
+        # name is not exposed in a public repo. The default is only an
+        # illustrative placeholder.
+        roles/bigquery.dataViewer: ["{{ env_var('SARA_MARTS_READER_PRINCIPAL', 'serviceAccount:sara-marts-reader@your-gcp-project.iam.gserviceaccount.com') }}"]
+      meta:
+        layer: onchain_btc
+    tests:
+      # layer_signal is missing if and only if coverage is below the minimum.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(layer_signal IS NULL) = (layer_coverage < 0.70)"
+      # Before the BGeometrics series start, only the MVRV family exists
+      # (2.0 / 3.8 = 53 %): no layer signal.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "signal_date >= DATE '2022-11-26' OR layer_signal IS NULL"
+      # Data age is never negative, and when the signal is carried it is
+      # within the indicator's expiry.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              COALESCE(btc_nupl_data_age_days, 0) >= 0
+              AND COALESCE(btc_mvrv_zscore_data_age_days, 0) >= 0
+              AND COALESCE(btc_sopr_data_age_days, 0) >= 0
+              AND COALESCE(btc_rhodl_ratio_data_age_days, 0) >= 0
+              AND (btc_sopr_as_of IS NULL OR btc_sopr_data_age_days <= 10)
+              AND (btc_rhodl_ratio_as_of IS NULL OR btc_rhodl_ratio_data_age_days <= 3)
+              AND (btc_nupl_as_of IS NULL OR btc_nupl_data_age_days <= 3)
+              AND (btc_mvrv_zscore_as_of IS NULL OR btc_mvrv_zscore_data_age_days <= 3)
+    columns:
+      - name: signal_date
+        data_type: DATE
+        tests:
+          - unique
+          - not_null
+      - name: signal_btc_nupl
+        data_type: STRING
+        description: "Signal of int_btc_nupl in force that day (as-of with a 3-day expiry). NULL before 2012-01-01 or if expired."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_btc_mvrv_zscore
+        data_type: STRING
+        description: "Signal of int_btc_mvrv_zscore in force that day (as-of with a 3-day expiry). NULL before 2012-01-01 or if expired."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_btc_sopr
+        data_type: STRING
+        description: "Signal of int_btc_sopr in force that day (as-of with a 10-day expiry). NULL before 2022-11-26 or if expired."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: signal_btc_rhodl_ratio
+        data_type: STRING
+        description: "Signal of int_btc_rhodl_ratio in force that day (as-of with a 3-day expiry, daily freshness block). NULL before 2022-11-26 or if expired."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_nupl_as_of
+        data_type: DATE
+        description: "Date of the int_btc_nupl observation used for signal_btc_nupl. NULL if expired or no previous observation."
+      - name: btc_mvrv_zscore_as_of
+        data_type: DATE
+        description: "Date of the int_btc_mvrv_zscore observation used for signal_btc_mvrv_zscore. NULL if expired or no previous observation."
+      - name: btc_sopr_as_of
+        data_type: DATE
+        description: "Date of the int_btc_sopr observation used for signal_btc_sopr. NULL if expired or no previous observation."
+      - name: btc_rhodl_ratio_as_of
+        data_type: DATE
+        description: "Date of the int_btc_rhodl_ratio observation used for signal_btc_rhodl_ratio. NULL if expired or no previous observation."
+      # All *_data_age_days columns are relative to signal_date (the mart's
+      # date), not to today; staleness versus today is source freshness.
+      - name: btc_nupl_data_age_days
+        data_type: INT64
+        description: "Days between signal_date and the latest int_btc_nupl observation up to that day, also when expired. Relative to signal_date, not to today. NULL before the first observation."
+      - name: btc_mvrv_zscore_data_age_days
+        data_type: INT64
+        description: "Days between signal_date and the latest int_btc_mvrv_zscore observation up to that day, also when expired. NULL before the first observation."
+      - name: btc_sopr_data_age_days
+        data_type: INT64
+        description: "Days between signal_date and the latest int_btc_sopr observation up to that day, also when expired (~7 on the latest rows: BGeometrics free plan). NULL before 2022-11-26."
+      - name: btc_rhodl_ratio_data_age_days
+        data_type: INT64
+        description: "Days between signal_date and the latest int_btc_rhodl_ratio observation up to that day, also when expired. NULL before 2022-11-26."
+      - name: layer_score
+        data_type: NUMERIC
+        description: >
+          SUM(normalized_value * weight) / SUM(weight) over the indicators with
+          a signal that day (carried and not expired included). NULL if
+          layer_coverage < 0.70. Rules in docs/layer_rules/onchain_btc.yaml.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -1
+                max_value: 1
+      - name: layer_coverage
+        data_type: NUMERIC
+        description: >
+          SUM(weight of the indicators with a signal that day) / SUM(weight of
+          all the layer's indicators, 3.8), between 0 and 1. Always published,
+          also below the 0.70 minimum. One indicator missing: >= 0.71; two
+          missing: below 0.70 (NULL signal).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: layer_signal
+        data_type: STRING
+        description: >
+          BULLISH if layer_score >= 0.3; NEUTRAL if -0.3 <= layer_score < 0.3;
+          BEARISH if layer_score < -0.3. NULL if layer_coverage < 0.70 (always
+          before 2022-11-26).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
