@@ -1,0 +1,148 @@
+version: 2
+
+models:
+  - name: int_btc_mvrv_zscore
+    description: >
+      Indicator btc_mvrv_zscore: Bitcoin MVRV Z-Score derived from Coin
+      Metrics (realized_cap = market_cap / mvrv; mvrv_z = (market_cap -
+      realized_cap) / std(market_cap), sample std over an expanding window
+      from the first available data point, 2010-07-18), one row per calendar
+      day. NULL before 2012-01-01 (output start date; earlier days still enter
+      the window), while the window has fewer than 365 observations (a guard
+      that doesn't bind on real data), and when an input is missing or mvrv
+      is not positive. Layer onchain_btc, relevance_level 3, weight 1.1 (both
+      TO CONFIRM). Rules in docs/indicator_rules/btc_mvrv_zscore.yaml; spec in
+      docs/specs/btc_mvrv_zscore.md.
+    config:
+      meta:
+        indicator_id: btc_mvrv_zscore
+        layer: onchain_btc
+        relevance_level: 3
+        weight: 1.1
+    tests:
+      # mvrv_z is NULL exactly when the rule says so.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              (mvrv_z IS NULL) = (
+                event_time < TIMESTAMP '2012-01-01'
+                OR n_obs < 365
+                OR market_cap IS NULL OR mvrv IS NULL OR mvrv <= 0
+                OR market_cap_std IS NULL OR market_cap_std <= 0
+              )
+      # The signal is only missing when mvrv_z is.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(signal IS NULL) = (mvrv_z IS NULL)"
+      # realized_cap recovered from MVRV.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "realized_cap > 0 AND ABS(realized_cap - market_cap / mvrv) < 1e-6 * market_cap"
+          config:
+            where: "realized_cap IS NOT NULL"
+      # Pins the formula against future edits.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "market_cap_std > 0 AND ABS(mvrv_z - (market_cap - realized_cap) / market_cap_std) < 1e-9"
+          config:
+            where: "mvrv_z IS NOT NULL"
+    columns:
+      - name: event_time
+        data_type: TIMESTAMP
+        tests:
+          - unique
+          - not_null
+      - name: market_cap
+        data_type: FLOAT64
+        description: "Coin Metrics market cap (CapMrktCurUSD, metric 'btc_market_cap'), USD."
+      - name: mvrv
+        data_type: FLOAT64
+        description: "Coin Metrics MVRV (CapMVRVCur, metric 'btc_mvrv')."
+      - name: realized_cap
+        data_type: FLOAT64
+        description: "market_cap / mvrv, USD. NULL when mvrv is NULL or <= 0."
+      - name: market_cap_std
+        data_type: FLOAT64
+        description: "Sample standard deviation of market_cap from the first available data point (2010-07-18) up to and including the day (expanding window, no look-ahead)."
+      - name: n_obs
+        data_type: INT64
+        description: "Number of market_cap observations in the window since the first available data point."
+      - name: mvrv_z
+        data_type: FLOAT64
+        description: "(market_cap - realized_cap) / market_cap_std. NULL before 2012-01-01, with n_obs < 365, or with a missing / invalid input."
+      - name: normalized_value
+        data_type: FLOAT64
+        description: "-1.0 / -0.6 / 0.0 / 0.6 / 1.0 (the [4.0, 7.0) band is ASSUMED). NULL when mvrv_z is NULL."
+      - name: signal
+        data_type: STRING
+        description: "NULL when mvrv_z is NULL."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BULLISH', 'NEUTRAL', 'BEARISH']
+      - name: btc_bias
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+      - name: message
+        data_type: STRING
+        description: "Bot text for the band, from the rule (Spanish). NULL when mvrv_z is NULL."
+
+unit_tests:
+  # The 365-observation minimum is lowered to 4 so the window fits in a mock.
+  # The pre-2012 row enters the window (n_obs counts it) but its own Z is NULL
+  # (output start date). Market caps 10, 10, 10, 10 have std 0 (NULL by the
+  # guard); adding 11 gives std > 0, and with mvrv = 1 the numerator is
+  # exactly 0, so Z = 0.0 pins the inclusive lower bound of the [0.0, 2.0)
+  # band. The bearish bands can't be reached with a handful of rows (a new
+  # large value also inflates the expanding std); they are covered by the
+  # historical reference test (2013, 2017 and 2021 tops).
+  - name: btc_mvrv_zscore_window_nulls_and_bands
+    model: int_btc_mvrv_zscore
+    overrides:
+      vars:
+        btc_mvrv_z_min_obs: 4
+    given:
+      # stg_market_metrics is ephemeral, so the mock has to be SQL.
+      - input: ref('stg_market_metrics')
+        format: sql
+        rows: |
+          SELECT 'btc_market_cap' AS metric, CAST(10.0 AS FLOAT64) AS value, TIMESTAMP '2011-12-31' AS event_time UNION ALL
+          SELECT 'btc_mvrv', 2.0, TIMESTAMP '2011-12-31' UNION ALL
+          SELECT 'btc_market_cap', 10.0, TIMESTAMP '2020-01-01' UNION ALL
+          SELECT 'btc_mvrv', 2.0, TIMESTAMP '2020-01-01' UNION ALL
+          SELECT 'btc_market_cap', 10.0, TIMESTAMP '2020-01-02' UNION ALL
+          SELECT 'btc_mvrv', 2.0, TIMESTAMP '2020-01-02' UNION ALL
+          SELECT 'btc_market_cap', 10.0, TIMESTAMP '2020-01-03' UNION ALL
+          SELECT 'btc_mvrv', 2.0, TIMESTAMP '2020-01-03' UNION ALL
+          SELECT 'btc_market_cap', 11.0, TIMESTAMP '2020-01-04' UNION ALL
+          SELECT 'btc_mvrv', 1.0, TIMESTAMP '2020-01-04' UNION ALL
+          SELECT 'btc_market_cap', 40.0, TIMESTAMP '2020-01-05' UNION ALL
+          SELECT 'btc_mvrv', 4.0, TIMESTAMP '2020-01-05' UNION ALL
+          SELECT 'btc_market_cap', 11.0, TIMESTAMP '2020-01-06' UNION ALL
+          SELECT 'btc_mvrv', 0.5, TIMESTAMP '2020-01-06' UNION ALL
+          SELECT 'btc_market_cap', 11.0, TIMESTAMP '2020-01-07' UNION ALL
+          SELECT 'btc_mvrv', 0.0, TIMESTAMP '2020-01-07' UNION ALL
+          SELECT 'btc_market_cap', 11.0, TIMESTAMP '2020-01-08' UNION ALL
+          SELECT 'btc_supply', 19000000.0, TIMESTAMP '2020-01-04'
+    expect:
+      rows:
+        # Before the output start date: in the window (n_obs 1), Z NULL.
+        - {event_time: 2011-12-31 00:00:00, n_obs: 1, normalized_value: null, signal: null}
+        # Fewer than 4 observations: NULL.
+        - {event_time: 2020-01-01 00:00:00, n_obs: 2, normalized_value: null, signal: null}
+        - {event_time: 2020-01-02 00:00:00, n_obs: 3, normalized_value: null, signal: null}
+        # 4 observations but std 0 (all 10): NULL by the guard.
+        - {event_time: 2020-01-03 00:00:00, n_obs: 4, normalized_value: null, signal: null}
+        # std > 0, numerator 0: Z = 0.0 exactly -> +0.6 (inclusive lower
+        # bound; a Z just below 0 would give +1.0).
+        - {event_time: 2020-01-04 00:00:00, n_obs: 5, normalized_value: 0.6, signal: BULLISH}
+        # std ~12.2, numerator 30: Z ~2.5 -> 0.0 NEUTRAL.
+        - {event_time: 2020-01-05 00:00:00, n_obs: 6, normalized_value: 0.0, signal: NEUTRAL}
+        # mvrv 0.5: realized cap above market cap, Z < 0 -> +1.0.
+        - {event_time: 2020-01-06 00:00:00, n_obs: 7, normalized_value: 1.0, signal: BULLISH}
+        # mvrv 0 and missing mvrv: NULL.
+        - {event_time: 2020-01-07 00:00:00, n_obs: 8, normalized_value: null, signal: null}
+        - {event_time: 2020-01-08 00:00:00, n_obs: 9, normalized_value: null, signal: null}

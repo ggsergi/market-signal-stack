@@ -1,0 +1,99 @@
+indicator_rules:
+  btc_mvrv_zscore:
+    description: "MVRV Z-Score as a Bitcoin cycle indicator measuring how far market cap deviates from realized cap, historically marking cycle bottoms and tops"
+    layer: onchain_btc
+    relevance_level: 3   # TO CONFIRM: Notion shows 3; NUPL YAML says 2 while Notion says 3
+    weight: 1.1          # TO CONFIRM: proposal aligned with RHODL (level 3 -> 1.1)
+    calculation:
+      # Real source: Coin Metrics, derived from series already in raw_market_metrics (decided 2026-11-26).
+      # It differs from the Notion spec, which assumed Glassnode precomputed (market/mvrv_z_score);
+      # Glassnode is NOT in the raw layer.
+      # BGeometrics' precomputed series (metric 'btc_mvrv_zscore') is now in the raw layer, but only
+      # from 2022-11-26 and with a ~7-day lag; it is used to validate the formula, not as the source
+      # (see docs/specs/btc_mvrv_zscore.md §2).
+      formula: "realized_cap = btc_market_cap / btc_mvrv; mvrv_z = (btc_market_cap - realized_cap) / std(btc_market_cap)"
+      frequency: "daily"
+      source: "Coin Metrics (derived from raw_market_metrics)"
+      series:
+        - btc_market_cap
+        - btc_mvrv
+      notes: >
+        Realized cap is recovered from MVRV (MVRV = market cap / realized cap).
+        Standard definition (Glassnode docs, Coinglass, Look Into Bitcoin): divide by the sample
+        standard deviation of MARKET CAP, cumulative from the first available data point.
+        Decided 2026-11-26: STDDEV_SAMP of market cap over an expanding window from the first
+        Coin Metrics data point (2010-07-18); output NULL before 2012-01-01. This matches Look Into
+        Bitcoin's cycle maxima and minima (see the spec). The Notion formula, std(market cap -
+        realized cap), is REJECTED. The old reference "~7.5 in April 2021" was mislabeled: it is the
+        February 2021 peak (April 2021 is ~5).
+    normalization:
+      type: "threshold"
+      unit: "zscore"
+      rolling_window: null   # expanding window over full history, not 365 days (check macros accept null)
+      notes: "Threshold-based zones. The 365-day rolling normalization in the Notion spec is for future combined signals only and is not implemented here."
+    # Original ranges converted to [min_inclusive, max_exclusive), like every
+    # other rule. Values unchanged.
+    thresholds:
+      - min_inclusive: 7.0
+        max_exclusive: null
+        normalized_value: -1.0
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El MVRV Z-Score se encuentra en zona de burbuja, históricamente asociada a techos de ciclo (2013, 2017, 2021) y alto riesgo de corrección en BTC."
+      # ASSUMPTION: Notion does not define the 4-7 band (says 2-4 healthy, >6-7 bubble). Needs confirmation.
+      - min_inclusive: 4.0
+        max_exclusive: 7.0
+        normalized_value: -0.6
+        signal: "BEARISH"
+        btc_bias: "negative"
+        message: "El MVRV Z-Score indica un mercado sobrecalentado, con el precio claramente por encima del valor realizado y riesgo creciente para BTC."
+      - min_inclusive: 2.0
+        max_exclusive: 4.0
+        normalized_value: 0.0
+        signal: "NEUTRAL"
+        btc_bias: "neutral"
+        message: "El MVRV Z-Score se sitúa en una fase alcista saludable, sin señales de exceso ni de infravaloración."
+      - min_inclusive: 0.0
+        max_exclusive: 2.0
+        normalized_value: 0.6
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El MVRV Z-Score se mueve cerca del valor justo, típico de fases de acumulación con riesgo moderado para BTC."
+      - min_inclusive: null
+        max_exclusive: 0.0
+        normalized_value: 1.0
+        signal: "BULLISH"
+        btc_bias: "positive"
+        message: "El MVRV Z-Score está por debajo de 0, señalando infravaloración severa y capitulación, históricamente asociadas a suelos de ciclo (2015, 2018, 2020)."
+    missing_data:
+      # Output start date (same as NUPL). Days before it still enter the
+      # expanding window, which starts at the first data point (2010-07-18).
+      start_date: "2012-01-01"
+      window_start: "first available data point (2010-07-18)"
+      # Kept as a guard (decided). With the window from the first data point
+      # it doesn't bind on real data: n_obs is 533 on 2012-01-01, so the first
+      # value is 2012-01-01.
+      min_observations: 365
+      # Decided 2026-11-26: sample standard deviation (STDDEV_SAMP).
+      std: "sample"
+      null_when: "before start_date, n_obs < min_observations, market_cap or mvrv missing, mvrv <= 0"
+      no_row: "no signal that day; no forward-fill in the indicator (carry-forward with expiry belongs to the layer mart)"
+    freshness:
+      # Per-indicator expiry in mart_onchain_btc: daily freshness block
+      # (raw_market_metrics, error_after 3 days). Coin Metrics publishes with
+      # a ~2-day lag. PENDING (spec Q8 / P4): btc_market_cap and btc_mvrv are
+      # not in the daily freshness filter yet.
+      max_age_days: 3
+    # Reference points for tests at warn severity: the cycle maxima and minima
+    # (window from the first data point; values checked in the refactor build
+    # on 2026-11-26). Look Into Bitcoin for comparison: tops 10.53 / 10.04 /
+    # 7.13, bottoms -0.60 / -0.49 / -0.20 / -0.36. The 2021 point is the
+    # February peak (the old "~7.5 in April 2021" was mislabeled).
+    reference_points:
+      - {date: "2013-04-09", description: "2013 cycle max", mvrv_z_observed: 10.652, expected_signal: "BEARISH", expected_normalized_value: -1.0}
+      - {date: "2015-01-14", description: "2015 cycle min", mvrv_z_observed: -0.598, expected_signal: "BULLISH", expected_normalized_value: 1.0}
+      - {date: "2017-12-07", description: "2017 cycle max", mvrv_z_observed: 10.084, expected_signal: "BEARISH", expected_normalized_value: -1.0}
+      - {date: "2018-12-15", description: "2018 cycle min", mvrv_z_observed: -0.49, expected_signal: "BULLISH", expected_normalized_value: 1.0}
+      - {date: "2020-03-12", description: "COVID crash (2020 min)", mvrv_z_observed: -0.20, expected_signal: "BULLISH", expected_normalized_value: 1.0}
+      - {date: "2021-02-21", description: "2021 cycle max", mvrv_z_observed: 7.15, expected_signal: "BEARISH", expected_normalized_value: -1.0}
+      - {date: "2022-11-09", description: "2022 cycle min", mvrv_z_observed: -0.36, expected_signal: "BULLISH", expected_normalized_value: 1.0}
